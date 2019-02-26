@@ -6,19 +6,19 @@
 #include "GameFramework/Actor.h"
 #include "BoundaryCube.generated.h"
 
-DECLARE_MULTICAST_DELEGATE_OneParam(FBoundaryCubeOnAuthorityGained, int, InGridIndex);
+class ABoundaryCube;
+class UWorkerColorComponent;
 
-namespace BoundaryCubeGlobals {
-	static FBoundaryCubeOnAuthorityGained BoundaryCubeOnAuthorityGained;
-}
+DECLARE_DELEGATE_TwoParams(FBoundaryCubeOnAuthorityGained, int, ABoundaryCube*, InGridIndex, InBoundaryCube);
 
-UCLASS()
+
+UCLASS(SpatialType)
 class ABoundaryCube : public AActor
 {
 	GENERATED_BODY()
 
 public:
-	// Sets defauvalues for this actor's properties
+	// Sets default values for this actor's properties
 	ABoundaryCube();
 
 protected:
@@ -26,21 +26,25 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
 
-	void SetGridIndex(const int& InGridIndex);
+	void SetGridIndex(const int InGridIndex);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_SetVisibility(bool bInIsVisible);
 
 	UFUNCTION()
+	bool GetIsVisible() { return bIsVisible; }
+
+	UFUNCTION()
 	void OnRep_IsVisible();
 
-	UPROPERTY(ReplicatedUsing = OnRep_IsVisible)
-	bool bIsVisible;
+	UFUNCTION()
+	void OnCurrentMeshColorUpdated(FColor InColor);
 
 	virtual void OnAuthorityGained();
+
+	static FBoundaryCubeOnAuthorityGained BoundaryCubeOnAuthorityGained;
+
 protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnVisibilityUpdated(bool bInIsVisible);
@@ -49,15 +53,24 @@ private:
 	UFUNCTION(CrossServer, Reliable, WithValidation)
 	void CrossServer_SetVisibility(bool bInIsVisible);
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_OnAuthorityGained();
 private:
-	UPROPERTY()
+	UPROPERTY(Replicated)
 	int GridIndex;
+
+	UPROPERTY(ReplicatedUsing = OnRep_IsVisible)
+	bool bIsVisible;
 
 	UPROPERTY(EditAnywhere)
 	USceneComponent* SceneComponent;
 
 	UPROPERTY(EditAnywhere)
-		UStaticMeshComponent* StaticMeshComponent;
+	UStaticMeshComponent* StaticMeshComponent;
+
+	UPROPERTY()
+	UWorkerColorComponent* WorkerColorComponent;
+
+public:
+
+	UFUNCTION()
+	FColor GetCurrentMeshColor();
 };

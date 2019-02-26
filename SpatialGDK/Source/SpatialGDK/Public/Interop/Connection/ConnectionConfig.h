@@ -13,7 +13,7 @@ struct FConnectionConfig
 {
 	FConnectionConfig()
 		: UseExternalIp(false)
-		, EnableProtocolLoggingAtStartup(false)
+		, EnableProtocolLoggingAtStartup(true)
 		, LinkProtocol(WORKER_NETWORK_CONNECTION_TYPE_RAKNET)
 	{
 		const TCHAR* CommandLine = FCommandLine::Get();
@@ -21,8 +21,8 @@ struct FConnectionConfig
 		FParse::Value(CommandLine, TEXT("workerType"), WorkerType);
 		FParse::Value(CommandLine, TEXT("workerId"), WorkerId);
 		FParse::Bool(CommandLine, TEXT("useExternalIpForBridge"), UseExternalIp);
-		FParse::Bool(CommandLine, TEXT("enableProtocolLogging"), EnableProtocolLoggingAtStartup);
-		FParse::Value(CommandLine, TEXT("protocolLoggingPrefix"), ProtocolLoggingPrefix);
+		//FParse::Bool(CommandLine, TEXT("enableProtocolLogging"), EnableProtocolLoggingAtStartup);
+		//FParse::Value(CommandLine, TEXT("protocolLoggingPrefix"), ProtocolLoggingPrefix);
         
 #if PLATFORM_IOS || PLATFORM_ANDROID
 		// On a mobile platform, you can only be a client worker, and therefore use the external IP.

@@ -3,24 +3,37 @@
 #include "BoundaryCube.h"
 #include "PackageName.h"
 #include "ConstructorHelpers.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "WorkerColorComponent.h"
 #include "UnrealNetwork.h"
 
+FBoundaryCubeOnAuthorityGained ABoundaryCube::BoundaryCubeOnAuthorityGained;
 // Sets default values
 ABoundaryCube::ABoundaryCube()
 {
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
+
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> BoxMesh(TEXT("StaticMesh'/Game/Geometry/Meshes/1M_Cube.1M_Cube'"));
+	static ConstructorHelpers::FObjectFinder<UMaterial> BaseMaterial(TEXT("Material'/Game/Vehicle/Meshes/BaseMaterial.BaseMaterial'"));
 
 	SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComponent"));
 	SceneComponent->SetupAttachment(RootComponent);
 
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesh"));
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> BoxMesh(TEXT("StaticMesh'/Game/Geometry/Meshes/1M_Cube.1M_Cube'"));
 	StaticMeshComponent->SetStaticMesh(BoxMesh.Object);
+	StaticMeshComponent->SetMaterial(0, UMaterialInstanceDynamic::Create(BaseMaterial.Object, StaticMeshComponent));
+	StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	StaticMeshComponent->SetupAttachment(SceneComponent);
+	StaticMeshComponent->SetVisibility(false);
+
+	WorkerColorComponent = CreateDefaultSubobject<UWorkerColorComponent>(TEXT("WorkerColorComponent"));
+	WorkerColorComponent->OnCurrentMeshColorUpdated.AddDynamic(this, &ABoundaryCube::OnCurrentMeshColorUpdated);
+
+	GridIndex	= -1;
 
 	bReplicates = true;
-	bIsVisible = true;
+	bIsVisible  = false;
 }
 
 // Called when the game starts or when spawned
@@ -29,33 +42,34 @@ void ABoundaryCube::BeginPlay()
 	Super::BeginPlay();
 }
 
-// Called every frame
-void ABoundaryCube::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
-
 void ABoundaryCube::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ABoundaryCube, bIsVisible);
+	DOREPLIFETIME(ABoundaryCube, GridIndex);
+}
+
+void ABoundaryCube::OnCurrentMeshColorUpdated(FColor InColor)
+{
+	UMaterialInstanceDynamic* MaterialInstance = StaticMeshComponent->CreateDynamicMaterialInstance(0, StaticMeshComponent->GetMaterial(0));
+	MaterialInstance->SetVectorParameterValue(FName("DiffuseColor"), FLinearColor(InColor));
+	StaticMeshComponent->SetMaterial(0, MaterialInstance);
 }
 
 void ABoundaryCube::OnAuthorityGained()
 {
-	Server_OnAuthorityGained();
+	WorkerColorComponent->Server_UpdateColorComponent();
+	if (BoundaryCubeOnAuthorityGained.IsBound())
+	{
+		BoundaryCubeOnAuthorityGained.Execute(GridIndex, this);
+	}
 }
-bool Server_OnAuthorityGained_Validate()
+FColor ABoundaryCube::GetCurrentMeshColor()
 {
-	return true;
-}
-void Server_OnAuthorityGained_Implementation()
-{
-	BoundaryCubeOnAuthorityGained.Broadcast(GridIndex);
+	return WorkerColorComponent->GetCurrentMeshColor();
 }
 
-void ABoundaryCube::SetGridIndex(const int& InGridIndex)
+void ABoundaryCube::SetGridIndex(const int InGridIndex)
 {
 	GridIndex = InGridIndex;
 }
@@ -82,6 +96,5 @@ bool ABoundaryCube::CrossServer_SetVisibility_Validate(bool bInIsVisible)
 
 void ABoundaryCube::CrossServer_SetVisibility_Implementation(bool bInIsVisible)
 {
-	Destroy();
-	//bIsVisible = bInIsVisible;
+	bIsVisible = bInIsVisible;
 }
