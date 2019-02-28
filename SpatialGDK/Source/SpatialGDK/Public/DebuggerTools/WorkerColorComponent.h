@@ -11,7 +11,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogSpatialOSToolkit, Log, All);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCurrentMeshColorUpdated, FColor, InColor);
 
 UCLASS(SpatialType, ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class  UWorkerColorComponent : public UActorComponent
+class SPATIALGDK_API UWorkerColorComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
@@ -24,9 +24,6 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
-	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
 	UFUNCTION(Server, Reliable, WithValidation, BlueprintCallable)
 	void Server_UpdateColorComponent();
 		

@@ -25,7 +25,6 @@ ABoundaryCube::ABoundaryCube()
 	StaticMeshComponent->SetMaterial(0, UMaterialInstanceDynamic::Create(BaseMaterial.Object, StaticMeshComponent));
 	StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	StaticMeshComponent->SetupAttachment(SceneComponent);
-	StaticMeshComponent->SetVisibility(false);
 
 	WorkerColorComponent = CreateDefaultSubobject<UWorkerColorComponent>(TEXT("WorkerColorComponent"));
 	WorkerColorComponent->OnCurrentMeshColorUpdated.AddDynamic(this, &ABoundaryCube::OnCurrentMeshColorUpdated);
@@ -33,7 +32,7 @@ ABoundaryCube::ABoundaryCube()
 	GridIndex	= -1;
 
 	bReplicates = true;
-	bIsVisible  = false;
+	bIsVisible  = true;
 }
 
 // Called when the game starts or when spawned
@@ -59,7 +58,7 @@ void ABoundaryCube::OnCurrentMeshColorUpdated(FColor InColor)
 void ABoundaryCube::OnAuthorityGained()
 {
 	WorkerColorComponent->Server_UpdateColorComponent();
-	if (BoundaryCubeOnAuthorityGained.IsBound())
+	if (BoundaryCubeOnAuthorityGained.IsBound() && GridIndex != -1)
 	{
 		BoundaryCubeOnAuthorityGained.Execute(GridIndex, this);
 	}
@@ -97,4 +96,25 @@ bool ABoundaryCube::CrossServer_SetVisibility_Validate(bool bInIsVisible)
 void ABoundaryCube::CrossServer_SetVisibility_Implementation(bool bInIsVisible)
 {
 	bIsVisible = bInIsVisible;
+}
+
+bool ABoundaryCube::DestroyCube_Validate()
+{
+	return true;
+}
+
+void ABoundaryCube::DestroyCube_Implementation()
+{
+	CrossServer_DestroyCube();
+}
+
+
+bool ABoundaryCube::CrossServer_DestroyCube_Validate()
+{
+	return true;
+}
+
+void ABoundaryCube::CrossServer_DestroyCube_Implementation()
+{
+	Destroy();
 }

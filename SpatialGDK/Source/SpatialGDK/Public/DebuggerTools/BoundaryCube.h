@@ -13,7 +13,7 @@ DECLARE_DELEGATE_TwoParams(FBoundaryCubeOnAuthorityGained, int, ABoundaryCube*, 
 
 
 UCLASS(SpatialType)
-class ABoundaryCube : public AActor
+class SPATIALGDK_API ABoundaryCube : public AActor
 {
 	GENERATED_BODY()
 
@@ -41,19 +41,23 @@ public:
 	UFUNCTION()
 	void OnCurrentMeshColorUpdated(FColor InColor);
 
+	UFUNCTION()
+	FColor GetCurrentMeshColor();
+
+	UFUNCTION(Server, WithValidation, Reliable)
+	void DestroyCube();
+
 	virtual void OnAuthorityGained();
 
 	static FBoundaryCubeOnAuthorityGained BoundaryCubeOnAuthorityGained;
-
-protected:
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnVisibilityUpdated(bool bInIsVisible);
 
 private:
 	UFUNCTION(CrossServer, Reliable, WithValidation)
 	void CrossServer_SetVisibility(bool bInIsVisible);
 
-private:
+	UFUNCTION(CrossServer, Reliable, WithValidation)
+	void CrossServer_DestroyCube();
+
 	UPROPERTY(Replicated)
 	int GridIndex;
 
@@ -68,9 +72,4 @@ private:
 
 	UPROPERTY()
 	UWorkerColorComponent* WorkerColorComponent;
-
-public:
-
-	UFUNCTION()
-	FColor GetCurrentMeshColor();
 };

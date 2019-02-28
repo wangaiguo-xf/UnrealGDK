@@ -14,26 +14,16 @@ UWorkerColorComponent::UWorkerColorComponent()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 	bReplicates = true;
 	CurrentMeshColor = FColor::Black;
 	// ...
 }
 
-
 // Called when the game starts
 void UWorkerColorComponent::BeginPlay()
 {
 	Super::BeginPlay();
-}
-
-
-// Called every frame
-void UWorkerColorComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// ...
 }
 
 void UWorkerColorComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -61,7 +51,7 @@ void UWorkerColorComponent::Server_UpdateColorComponent_Implementation()
 	}
 	else
 	{
-		UE_LOG(LogSpatialOSToolkit, Error, TEXT("A color component has been added to an actor without VisualizeWorkerColors Singleton being added to the world."));
+		UE_LOG(LogSpatialOSToolkit, Warning, TEXT("A color component has been added to an actor without VisualizeWorkerColors actor being added to the level so ColorComponents will not be updated."));
 	}
 }
 
