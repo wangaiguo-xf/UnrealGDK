@@ -259,9 +259,13 @@ TArray<Worker_ComponentData> CreateStartupActorData(USpatialActorChannel* Channe
 	TArray<Worker_ComponentData> ComponentData = DataFactory.CreateComponentDatas(Actor, Info, InitialRepChanges, InitialHandoverChanges);
 
 	// Add Actor RPCs to entity
-	ComponentData.Add(ComponentFactory::CreateEmptyComponentData(SpatialConstants::CLIENT_RPC_ENDPOINT_COMPONENT_ID));
-	ComponentData.Add(ComponentFactory::CreateEmptyComponentData(SpatialConstants::SERVER_RPC_ENDPOINT_COMPONENT_ID));
-	ComponentData.Add(ComponentFactory::CreateEmptyComponentData(SpatialConstants::NETMULTICAST_RPCS_COMPONENT_ID));
+	for (int32 RPCType = SCHEMA_FirstRPC; RPCType <= SCHEMA_LastRPC; RPCType++)
+	{
+		if (Info.SchemaComponents[RPCType] != 0)
+		{
+			ComponentData.Add(ComponentFactory::CreateEmptyComponentData(Info.SchemaComponents[RPCType]));
+		}
+	}
 
 	// Visit each supported subobject and create component data for initial state of each subobject
 	for (auto& SubobjectInfoPair : Info.SubobjectInfo)
@@ -277,6 +281,15 @@ TArray<Worker_ComponentData> CreateStartupActorData(USpatialActorChannel* Channe
 
 			// Create component data for initial state of subobject
 			ComponentData.Append(DataFactory.CreateComponentDatas(Subobject.Get(), SubobjectInfo, SubobjectRepChanges, SubobjectHandoverChanges));
+
+			// Add subobject RPCs to entity
+			for (int32 RPCType = SCHEMA_FirstRPC; RPCType <= SCHEMA_LastRPC; RPCType++)
+			{
+				if (SubobjectInfo.SchemaComponents[RPCType] != 0)
+				{
+					ComponentData.Add(ComponentFactory::CreateEmptyComponentData(SubobjectInfo.SchemaComponents[RPCType]));
+				}
+			}
 		}
 	}
 
@@ -309,7 +322,7 @@ bool CreateStartupActor(Worker_SnapshotOutputStream* OutputStream, AActor* Actor
 			return;
 		}
 
-		if (Type == SCHEMA_ClientReliableRPC)
+		if (Type == SCHEMA_ClientRPC)
 		{
 			// No write attribute for RPC_Client since a Startup Actor will have no owner on level start
 			return;
@@ -338,7 +351,7 @@ bool CreateStartupActor(Worker_SnapshotOutputStream* OutputStream, AActor* Actor
 				return;
 			}
 
-			if (Type == SCHEMA_ClientReliableRPC)
+			if (Type == SCHEMA_ClientRPC)
 			{
 				// No write attribute for RPC_Client since a Startup Actor will have no owner on level start
 				return;

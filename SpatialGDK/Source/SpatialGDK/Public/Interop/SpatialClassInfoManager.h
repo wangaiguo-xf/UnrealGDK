@@ -56,7 +56,7 @@ struct FClassInfo
 
 	TWeakObjectPtr<UClass> Class;
 
-	TArray<UFunction*> RPCs;
+	TMap<ESchemaComponentType, TArray<UFunction*>> RPCs;
 	TMap<UFunction*, FRPCInfo> RPCInfoMap;
 
 	TArray<FHandoverPropertyInfo> HandoverProperties;
