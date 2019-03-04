@@ -29,7 +29,9 @@
 #include "EngineClasses/SpatialPackageMapClient.h"
 #include "EngineClasses/SpatialPendingNetGame.h"
 #include "SpatialConstants.h"
+#include "SpatialGDKSettings.h"
 #include "Utils/EntityRegistry.h"
+#include "Utils/EntityPool.h"
 
 DEFINE_LOG_CATEGORY(LogSpatialOSNetDriver);
 
@@ -229,6 +231,7 @@ void USpatialNetDriver::OnMapLoadedAndConnected()
 	PlayerSpawner = NewObject<USpatialPlayerSpawner>();
 	StaticComponentView = NewObject<USpatialStaticComponentView>();
 	SnapshotManager = NewObject<USnapshotManager>();
+	EntityPool = NewObject<UEntityPool>();
 
 	PlayerSpawner->Init(this, TimerManager);
 
@@ -262,6 +265,7 @@ void USpatialNetDriver::OnMapLoadedAndConnected()
 	Receiver->Init(this, TimerManager);
 	GlobalStateManager->Init(this, TimerManager);
 	SnapshotManager->Init(this);
+	EntityPool->Init(this, TimerManager);
 
 	// Bind the ProcessServerTravel delegate to the spatial variant. This ensures that if ServerTravel is called and Spatial networking is enabled, we can travel properly.
 	GetWorld()->SpatialProcessServerTravelDelegate.BindStatic(SpatialProcessServerTravel);
@@ -660,6 +664,7 @@ int32 USpatialNetDriver::ServerReplicateActors_ProcessPrioritizedActors(UNetConn
 	int32 ActorUpdatesThisConnectionSent = 0;
 
 	// SpatialGDK - Actor replication rate limiting based on config value.
+	uint32 ActorReplicationRateLimit = GetDefault<USpatialGDKSettings>()->ActorReplicationRateLimit;
 	int32 RateLimit = (ActorReplicationRateLimit > 0) ? ActorReplicationRateLimit : INT32_MAX;
 	int32 FinalReplicatedCount = 0;
 
@@ -1048,7 +1053,7 @@ void USpatialNetDriver::TickFlush(float DeltaTime)
 #if USE_SERVER_PERF_COUNTERS
 	double ServerReplicateActorsTimeMs = 0.0f;
 #endif // USE_SERVER_PERF_COUNTERS
-	if (IsServer() && ClientConnections.Num() > 0 && Connection->IsConnected())
+	if (IsServer() && ClientConnections.Num() > 0 && Connection->IsConnected() && EntityPool->IsReady())
 	{
 		// Update all clients.
 #if WITH_SERVER_CODE
@@ -1332,6 +1337,55 @@ void USpatialPendingNetGame::SendJoin()
 	bSentJoinRequest = true;
 }
 
+Worker_EntityId USpatialNetDriver::SetupActorEntity(AActor* Actor)
+{
+	checkSlow(Actor);
+
+	Worker_EntityId EntityId = EntityPool->Pop();
+	if (EntityId == SpatialConstants::INVALID_ENTITY_ID)
+	{
+		UE_LOG(LogSpatialOSNetDriver, Error, TEXT("Unable to retrieve an Entity ID for Actor: %s"), *Actor->GetName());
+		return EntityId;
+	}
+
+	GetEntityRegistry()->AddToRegistry(EntityId, Actor);
+
+	// Register Actor with package map since we know what the entity id is.
+	PackageMap->ResolveEntityActor(Actor, EntityId);
+
+	return EntityId;
+}
+
+FNetworkGUID USpatialNetDriver::TryResolveObjectAsEntity(UObject* Value)
+{
+	FNetworkGUID NetGUID;
+
+	if (!Value->IsA<AActor>() && !Value->GetOuter()->IsA<AActor>())
+	{
+		return NetGUID;
+	}
+
+	AActor* Actor = Value->IsA<AActor>() ? Cast<AActor>(Value) : Cast<AActor>(Value->GetOuter());
+
+	if (Actor->GetClass()->HasAnySpatialClassFlags(SPATIALCLASS_Singleton))
+	{
+		// Singletons will always go through GlobalStateManager first.
+		return NetGUID;
+	}
+
+	// Resolve as an entity if it is an unregistered actor
+	if (Actor->Role == ROLE_Authority && GetEntityRegistry()->GetEntityIdFromActor(Actor) == SpatialConstants::INVALID_ENTITY_ID)
+	{
+		Worker_EntityId EntityId = SetupActorEntity(Actor);
+		// Mark this entity ID as pending creation (checked in USpatialActorChannel::SetChannelActor).
+		PendingCreationEntityIds.Add(EntityId);
+
+		NetGUID = PackageMap->GetNetGUIDFromObject(Value);
+	}
+
+	return NetGUID;
+}
+
 void USpatialNetDriver::AddActorChannel(Worker_EntityId EntityId, USpatialActorChannel* Channel)
 {
 	EntityToActorChannel.Add(EntityId, Channel);
@@ -1351,6 +1405,16 @@ void USpatialNetDriver::RemoveActorChannel(Worker_EntityId EntityId)
 USpatialActorChannel* USpatialNetDriver::GetActorChannelByEntityId(Worker_EntityId EntityId) const
 {
 	return EntityToActorChannel.FindRef(EntityId);
+}
+
+bool USpatialNetDriver::IsEntityIdPendingCreation(Worker_EntityId EntityId) const
+{
+	return PendingCreationEntityIds.Contains(EntityId);
+}
+
+void USpatialNetDriver::RemovePendingCreationEntityId(Worker_EntityId EntityId)
+{
+	PendingCreationEntityIds.Remove(EntityId);
 }
 
 void USpatialNetDriver::WipeWorld(const USpatialNetDriver::PostWorldWipeDelegate& LoadSnapshotAfterWorldWipe)

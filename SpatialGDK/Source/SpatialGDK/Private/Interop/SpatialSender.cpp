@@ -383,6 +383,7 @@ void USpatialSender::SendRPC(TSharedRef<FPendingRPCParams> Params)
 	}
 
 	UObject* TargetObject = Params->TargetObject.Get();
+	// Is it possible in native unreal to send an RPC before having replicated an actor?
 	if (PackageMap->GetUnrealObjectRefFromObject(TargetObject) == FUnrealObjectRef::UNRESOLVED_OBJECT_REF)
 	{
 		UE_LOG(LogSpatialSender, Verbose, TEXT("Trying to send RPC %s on unresolved Actor %s."), *Params->Function->GetName(), *TargetObject->GetName());
@@ -502,13 +503,6 @@ void USpatialSender::FlushRetryRPCs()
 		SendRPC(RetryRPC);
 	}
 	RetryRPCs.Empty();
-}
-
-void USpatialSender::SendReserveEntityIdRequest(USpatialActorChannel* Channel)
-{
-	UE_LOG(LogSpatialSender, Log, TEXT("Sending reserve entity Id request for %s"), *Channel->Actor->GetName());
-	Worker_RequestId RequestId = Connection->SendReserveEntityIdRequest();
-	Receiver->AddPendingActorRequest(RequestId, Channel);
 }
 
 void USpatialSender::SendCreateEntityRequest(USpatialActorChannel* Channel)
@@ -647,7 +641,7 @@ Worker_CommandRequest USpatialSender::CreateRPCCommandRequest(UObject* TargetObj
 	OutEntityId = TargetObjectRef.Entity;
 
 	TSet<TWeakObjectPtr<const UObject>> UnresolvedObjects;
-	FSpatialNetBitWriter PayloadWriter(PackageMap, UnresolvedObjects);
+	FSpatialNetBitWriter PayloadWriter(NetDriver, PackageMap, UnresolvedObjects);
 
 #if !UE_BUILD_SHIPPING
 	if (Function->HasAnyFunctionFlags(FUNC_NetReliable) && !Function->HasAnyFunctionFlags(FUNC_NetMulticast))
@@ -694,7 +688,7 @@ Worker_ComponentUpdate USpatialSender::CreateUnreliableRPCUpdate(UObject* Target
 	OutEntityId = TargetObjectRef.Entity;
 
 	TSet<TWeakObjectPtr<const UObject>> UnresolvedObjects;
-	FSpatialNetBitWriter PayloadWriter(PackageMap, UnresolvedObjects);
+	FSpatialNetBitWriter PayloadWriter(NetDriver, PackageMap, UnresolvedObjects);
 
 	TSharedPtr<FRepLayout> RepLayout = NetDriver->GetFunctionRepLayout(Function);
 	RepLayout_SendPropertiesForRPC(*RepLayout, PayloadWriter, Parameters);
