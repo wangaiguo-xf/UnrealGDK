@@ -23,29 +23,30 @@ enum ESchemaComponentType : int32
 	SCHEMA_OwnerOnly,
 	SCHEMA_Handover,
 
+	SCHEMA_Count,
+
 	// RPCs
-	SCHEMA_ClientRPC,
-	SCHEMA_ServerRPC,
+	SCHEMA_ClientReliableRPC,
+	SCHEMA_ClientUnreliableRPC,
+	SCHEMA_ServerReliableRPC,
+	SCHEMA_ServerUnreliableRPC,
 	SCHEMA_NetMulticastRPC,
 	SCHEMA_CrossServerRPC,
 
-	SCHEMA_Count,
 
 	// Iteration helpers
 	SCHEMA_Begin = SCHEMA_Data,
-	SCHEMA_FirstRPC = SCHEMA_ClientRPC,
-	SCHEMA_LastRPC = SCHEMA_CrossServerRPC,
 };
 
 FORCEINLINE ESchemaComponentType FunctionFlagsToRPCSchemaType(EFunctionFlags FunctionFlags)
 {
 	if (FunctionFlags & FUNC_NetClient)
 	{
-		return SCHEMA_ClientRPC;
+		return SCHEMA_ClientReliableRPC;
 	}
 	else if (FunctionFlags & FUNC_NetServer)
 	{
-		return SCHEMA_ServerRPC;
+		return SCHEMA_ServerReliableRPC;
 	}
 	else if (FunctionFlags & FUNC_NetMulticast)
 	{
@@ -65,9 +66,9 @@ FORCEINLINE FString RPCSchemaTypeToString(ESchemaComponentType RPCType)
 {
 	switch (RPCType)
 	{
-	case SCHEMA_ClientRPC:
+	case SCHEMA_ClientReliableRPC:
 		return TEXT("Client");
-	case SCHEMA_ServerRPC:
+	case SCHEMA_ServerReliableRPC:
 		return TEXT("Server");
 	case SCHEMA_NetMulticastRPC:
 		return TEXT("Multicast");
@@ -107,6 +108,9 @@ namespace SpatialConstants
 	const Worker_ComponentId STARTUP_ACTOR_MANAGER_COMPONENT_ID			    = 9993;
 	const Worker_ComponentId GSM_SHUTDOWN_COMPONENT_ID						= 9992;
 	const Worker_ComponentId HEARTBEAT_COMPONENT_ID							= 9991;
+	const Worker_ComponentId CLIENT_RPC_ENDPOINT_COMPONENT_ID				= 9990;
+	const Worker_ComponentId SERVER_RPC_ENDPOINT_COMPONENT_ID				= 9989;
+	const Worker_ComponentId NETMULTICAST_RPCS_COMPONENT_ID					= 9987;
 	const Worker_ComponentId STARTING_GENERATED_COMPONENT_ID				= 10000;
 
 	const Schema_FieldId SINGLETON_MANAGER_SINGLETON_NAME_TO_ENTITY_ID		= 1;
@@ -120,7 +124,6 @@ namespace SpatialConstants
 
 	const Schema_FieldId HEARTBEAT_EVENT_ID                                 = 1;
 
-<<<<<<< HEAD
 	// UnrealRPCPayload Field IDs
 	const Schema_FieldId UNREAL_RPC_PAYLOAD_OFFSET_ID = 1;
 	const Schema_FieldId UNREAL_RPC_PAYLOAD_RPC_INDEX_ID = 2;
@@ -133,6 +136,7 @@ namespace SpatialConstants
 <<<<<<< HEAD
 	// Reserved entity IDs expire in 5 minutes, we will refresh them every 3 minutes to be safe.
 	const float ENTITY_RANGE_EXPIRATION_INTERVAL_SECONDS = 180.0f;
+<<<<<<< HEAD
 =======
 	// TODO: Make these easily configurable: UNR-984
 	const float HEARTBEAT_INTERVAL_SECONDS = 2.0f;
@@ -143,6 +147,8 @@ namespace SpatialConstants
 	const float HEARTBEAT_INTERVAL_SECONDS = 2.0f;
 	const float HEARTBEAT_TIMEOUT_SECONDS = 10.0f;
 >>>>>>> parent of aae50974... Merge remote-tracking branch 'origin/feature/UNR-673-BulkReserveEntityIds' into workerboundary
+=======
+>>>>>>> parent of 8806967d... revertin commit
 
 	const float FIRST_COMMAND_RETRY_WAIT_SECONDS = 0.2f;
 	const float REPLICATED_STABLY_NAMED_ACTORS_DELETION_TIMEOUT_SECONDS = 5.0f;
