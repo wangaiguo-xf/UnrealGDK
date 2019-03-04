@@ -18,7 +18,6 @@
 #include "Schema/UnrealMetadata.h"
 #include "SpatialConstants.h"
 #include "Utils/ComponentReader.h"
-#include "Utils/EntityPool.h"
 #include "Utils/EntityRegistry.h"
 #include "Utils/RepLayoutUtils.h"
 
@@ -819,7 +818,7 @@ void USpatialReceiver::OnComponentUpdate(Worker_ComponentUpdateOp& Op)
 	}
 	else
 	{
-		TargetObject = PackageMap->GetObjectFromUnrealObjectRef(FUnrealObjectRef(Op.entity_id, Offset)).Get();
+		TargetObject = PackageMap->GetObjectFromUnrealObjectRef(FUnrealObjectRef(Channel->GetEntityId(), Offset)).Get();
 	}
 
 	if (TargetObject == nullptr)
@@ -1056,6 +1055,23 @@ void USpatialReceiver::ApplyRPC(UObject* TargetObject, UFunction* Function, TArr
 	}
 }
 
+void USpatialReceiver::OnReserveEntityIdResponse(Worker_ReserveEntityIdResponseOp& Op)
+{
+	UE_LOG(LogSpatialReceiver, Log, TEXT("Received reserve entity Id: request id: %d, entity id: %lld"), Op.request_id, Op.entity_id);
+
+	TWeakObjectPtr<USpatialActorChannel> Channel = PopPendingActorRequest(Op.request_id);
+
+	// It's possible for the ActorChannel to have been closed by the time we receive a response. Actor validity is checked within the channel.
+	if (Channel.IsValid())
+	{
+		Channel->OnReserveEntityIdResponse(Op);
+	}
+	else
+	{
+		UE_LOG(LogSpatialReceiver, Warning, TEXT("ReserveEntityId ActorChannel closed, entity not registered: request id: %d, entity id: %lld"), Op.request_id, Op.entity_id);
+	}
+}
+
 void USpatialReceiver::OnReserveEntityIdsResponse(Worker_ReserveEntityIdsResponseOp& Op)
 {
 	if (Op.status_code == WORKER_STATUS_CODE_SUCCESS)
@@ -1064,7 +1080,6 @@ void USpatialReceiver::OnReserveEntityIdsResponse(Worker_ReserveEntityIdsRespons
 		{
 			UE_LOG(LogSpatialReceiver, Log, TEXT("Executing ReserveEntityIdsResponse with delegate, request id: %d, first entity id: %lld, message: %s"), Op.request_id, Op.first_entity_id, UTF8_TO_TCHAR(Op.message));
 			RequestDelegate->ExecuteIfBound(Op);
-			ReserveEntityIDsDelegates.Remove(Op.request_id);
 		}
 		else
 		{

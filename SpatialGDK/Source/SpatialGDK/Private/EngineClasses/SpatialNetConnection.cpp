@@ -8,7 +8,6 @@
 #include "EngineClasses/SpatialPackageMapClient.h"
 #include "Interop/SpatialReceiver.h"
 #include "SpatialConstants.h"
-#include "SpatialGDKSettings.h"
 
 #include <WorkerSDK/improbable/c_schema.h>
 
@@ -120,7 +119,7 @@ void USpatialNetConnection::SetHeartbeatTimeoutTimer()
 	{
 		// This client timed out. Disconnect it and trigger OnDisconnected logic.
 		CleanUp();
-	}, GetDefault<USpatialGDKSettings>()->HeartbeatTimeoutSeconds, false);
+	}, SpatialConstants::HEARTBEAT_TIMEOUT_SECONDS, false);
 }
 
 void USpatialNetConnection::SetHeartbeatEventTimer()
@@ -135,7 +134,7 @@ void USpatialNetConnection::SetHeartbeatEventTimer()
 		Schema_AddObject(EventsObject, SpatialConstants::HEARTBEAT_EVENT_ID);
 
 		Cast<USpatialNetDriver>(Driver)->Connection->SendComponentUpdate(PlayerControllerEntity, &ComponentUpdate);
-	}, GetDefault<USpatialGDKSettings>()->HeartbeatIntervalSeconds, true, 0.0f);
+	}, SpatialConstants::HEARTBEAT_INTERVAL_SECONDS, true, 0.0f);
 }
 
 void USpatialNetConnection::DisableHeartbeat()

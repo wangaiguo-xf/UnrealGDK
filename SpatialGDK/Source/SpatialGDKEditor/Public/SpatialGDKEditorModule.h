@@ -17,6 +17,5 @@ public:
 private:
 	void RegisterSettings();
 	void UnregisterSettings();
-	bool HandleEditorSettingsSaved();
-	bool HandleRuntimeSettingsSaved();
+	bool HandleSettingsSaved();
 };

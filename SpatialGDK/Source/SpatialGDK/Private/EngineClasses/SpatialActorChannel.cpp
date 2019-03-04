@@ -21,7 +21,6 @@
 #include "Interop/SpatialReceiver.h"
 #include "Interop/GlobalStateManager.h"
 #include "SpatialConstants.h"
-#include "Utils/EntityPool.h"
 #include "Utils/EntityRegistry.h"
 #include "Utils/RepLayoutUtils.h"
 
@@ -588,30 +587,18 @@ void USpatialActorChannel::SetChannelActor(AActor* InActor)
 	EntityId = NetDriver->GetEntityRegistry()->GetEntityIdFromActor(InActor);
 
 	// If the entity registry has no entry for this actor, this means we need to create it.
-	if (EntityId == SpatialConstants::INVALID_ENTITY_ID)
+	if (EntityId == 0)
 	{
 		bCreatingNewEntity = true;
-		EntityId = NetDriver->SetupActorEntity(InActor);
-
-		// If a Singleton was created, update the GSM with the proper Id.
-		if (InActor->GetClass()->HasAnySpatialClassFlags(SPATIALCLASS_Singleton))
-		{
-			NetDriver->GlobalStateManager->UpdateSingletonEntityId(InActor->GetClass()->GetPathName(), EntityId);
-		}
+		Sender->SendReserveEntityIdRequest(this);
 	}
 	else
 	{
 		UE_LOG(LogSpatialActorChannel, Log, TEXT("Opened channel for actor %s with existing entity ID %lld."), *InActor->GetName(), EntityId);
 
-		if (NetDriver->IsEntityIdPendingCreation(EntityId))
-		{
-			bCreatingNewEntity = true;
-			NetDriver->RemovePendingCreationEntityId(EntityId);
-		}
+		// Inform USpatialNetDriver of this new actor channel/entity pairing
+		NetDriver->AddActorChannel(EntityId, this);
 	}
-
-	// Inform USpatialNetDriver of this new actor channel/entity pairing
-	NetDriver->AddActorChannel(EntityId, this);
 
 	// Set up the shadow data for the handover properties. This is used later to compare the properties and send only changed ones.
 	check(!HandoverShadowDataMap.Contains(InActor));
@@ -659,6 +646,56 @@ void USpatialActorChannel::PostReceiveSpatialUpdate(UObject* TargetObject, const
 	{
 		TargetObject->PostRepNotifies();
 	}
+}
+
+void USpatialActorChannel::RegisterEntityId(const Worker_EntityId& ActorEntityId)
+{
+	NetDriver->GetEntityRegistry()->AddToRegistry(ActorEntityId, GetActor());
+
+	// Inform USpatialNetDriver of this new actor channel/entity pairing
+	NetDriver->AddActorChannel(ActorEntityId, this);
+
+	// If a Singleton was created, update the GSM with the proper Id.
+	if (Actor->GetClass()->HasAnySpatialClassFlags(SPATIALCLASS_Singleton))
+	{
+		NetDriver->GlobalStateManager->UpdateSingletonEntityId(Actor->GetClass()->GetPathName(), ActorEntityId);
+	}
+}
+
+void USpatialActorChannel::OnReserveEntityIdResponse(const Worker_ReserveEntityIdResponseOp& Op)
+{
+	if (Actor == nullptr || Actor->IsPendingKill())
+	{
+		UE_LOG(LogSpatialActorChannel, Warning, TEXT("Actor is invalid after trying to reserve entity id"));
+		return;
+	}
+
+	if (Op.status_code != WORKER_STATUS_CODE_SUCCESS)
+	{
+		// UNR-630 - Temporary hack to avoid failure to reserve entities due to timeout on large maps
+		if (Op.status_code == WORKER_STATUS_CODE_TIMEOUT)
+		{
+			UE_LOG(LogSpatialActorChannel, Warning, TEXT("Failed to reserve entity for Actor %s Reason: %s. Retrying..."), *Actor->GetName(), UTF8_TO_TCHAR(Op.message));
+			Sender->SendReserveEntityIdRequest(this);
+		}
+		else
+		{
+			UE_LOG(LogSpatialActorChannel, Error, TEXT("Failed to reserve entity id for Actor %s: Reason: %s"), *Actor->GetName(), UTF8_TO_TCHAR(Op.message));
+		}
+
+		return;
+	}
+
+	UE_LOG(LogSpatialActorChannel, Verbose, TEXT("Reserved entity id (%lld) for: %s."), Op.entity_id, *Actor->GetName());
+
+	EntityId = Op.entity_id;
+	RegisterEntityId(EntityId);
+
+	// Register Actor with package map since we know what the entity id is.
+	NetDriver->PackageMap->ResolveEntityActor(Actor, EntityId);
+
+	// Force an Update so that the entity will be created in the next batch of processed actors
+	NetDriver->ForceNetUpdate(Actor);
 }
 
 void USpatialActorChannel::OnCreateEntityResponse(const Worker_CreateEntityResponseOp& Op)
