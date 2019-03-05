@@ -391,7 +391,7 @@ FNetworkGUID FSpatialNetGUIDCache::RegisterNetGUIDFromPathForStaticObject(const 
 	CacheObject.PathName = FName(*TempPath);
 	CacheObject.OuterGUID = OuterGUID;
 	CacheObject.bNoLoad = bNoLoadOnClient;		// server decides whether the client should load objects (e.g. don't load levels)
-	CacheObject.bIgnoreWhenMissing = true;		// ensure we give workers time to load non-loaded assets
+	CacheObject.bIgnoreWhenMissing = bNoLoadOnClient;
 	FNetworkGUID NetGUID = GenerateNewNetGUID(0);
 	RegisterNetGUID_Internal(NetGUID, CacheObject);
 	return NetGUID;
