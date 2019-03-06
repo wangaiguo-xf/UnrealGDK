@@ -9,21 +9,6 @@
 
 class ABoundaryCube;
 
-namespace VisualizeWorkerColorsGlobals
-{
-	const int WorldDimensionX = 200;
-	const int WorldDimensionZ = 200;
-	const int ChunkEdgeLength = 5;
-
-	const int CubesToSpawnAtATime		  = 40;
-	const float DelayToSpawnNextGroup     = 10.0f;
-	const float DelayToStartSpawningCubes = 3.0f;
-
-	const bool ConstructWorkerBoundaries = true;
-}
-
-using namespace VisualizeWorkerColorsGlobals;
-
 USTRUCT(BlueprintType)
 struct FDebugBoundaryInfo
 {
@@ -78,6 +63,8 @@ private:
 	void CompareChuncks(const int CenterCell, TArray<uint32> CompareTo);
 
 	bool IsOutterCube(const int CenterCell);
+
+	bool AreColorsMatching(const uint32 InLhs, const uint32 InRhs);
 
 	UPROPERTY(Handover)
 	TArray<FDebugBoundaryInfo> Grid2D;

@@ -16,7 +16,6 @@
 
 #include "SpatialGDKEditor.h"
 #include "SpatialGDKEditorSettings.h"
-#include "VisualizeWorkerColors.h"
 
 #include "Editor/EditorEngine.h"
 #include "HAL/FileManager.h"
@@ -435,10 +434,10 @@ bool FSpatialGDKEditorToolbarModule::GenerateDefaultLaunchConfig(const FString& 
 		Writer->WriteValue(TEXT("template"), TEXT("small")); // Template section
 		Writer->WriteObjectStart(TEXT("world")); // World section begin
 			Writer->WriteObjectStart(TEXT("dimensions"));
-				Writer->WriteValue(TEXT("x_meters"), VisualizeWorkerColorsGlobals::WorldDimensionX);
-				Writer->WriteValue(TEXT("z_meters"), VisualizeWorkerColorsGlobals::WorldDimensionZ);
+				Writer->WriteValue(TEXT("x_meters"), 2000);
+				Writer->WriteValue(TEXT("z_meters"), 2000);
 			Writer->WriteObjectEnd();
-			Writer->WriteValue(TEXT("chunk_edge_length_meters"), VisualizeWorkerColorsGlobals::ChunkEdgeLength);
+			Writer->WriteValue(TEXT("chunk_edge_length_meters"), 2000);
 			Writer->WriteValue(TEXT("streaming_query_interval"), 4);
 			Writer->WriteArrayStart(TEXT("legacy_flags"));
 				Writer->WriteObjectStart();

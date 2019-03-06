@@ -37,6 +37,30 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = "Heartbeat", meta = (ConfigRestartRequired = false, DisplayName = "Heartbeat Timeout (seconds)"))
 	float HeartbeatTimeoutSeconds;
 
+	UPROPERTY(EditAnywhere, config, Category = "Visualizing Worker Boundaries", meta = (ConfigRestartRequired = false, DisplayName = "Construct Worker Boundaries"))
+	bool ConstructWorkerBoundaries;
+
+	UPROPERTY(EditAnywhere, config, Category = "Visualizing Worker Boundaries", meta = (EditCondition = "ConstructWorkerBoundaries", ConfigRestartRequired = false, DisplayName = "World Dimension X"))
+	int WorldDimensionX;
+
+	UPROPERTY(EditAnywhere, config, Category = "Visualizing Worker Boundaries", meta = (EditCondition = "ConstructWorkerBoundaries", ConfigRestartRequired = false, DisplayName = "World Dimension Z"))
+	int WorldDimensionZ;
+
+	UPROPERTY(EditAnywhere, config, Category = "Visualizing Worker Boundaries", meta = (EditCondition = "ConstructWorkerBoundaries", ConfigRestartRequired = false, DisplayName = "Chunk Edge Length"))
+	int ChunkEdgeLength;
+
+	UPROPERTY(EditAnywhere, config, Category = "Visualizing Worker Boundaries", meta = (EditCondition = "ConstructWorkerBoundaries", ConfigRestartRequired = false, DisplayName = "Cubes To Spawn Per Batch"))
+	int CubesToSpawnAtATime;
+
+	UPROPERTY(EditAnywhere, config, Category = "Visualizing Worker Boundaries", meta = (EditCondition = "ConstructWorkerBoundaries", ConfigRestartRequired = false, DisplayName = "Delay Between Spawning Batch Of Cubes"))
+	float DelayToSpawnNextGroup;
+
+	UPROPERTY(EditAnywhere, config, Category = "Visualizing Worker Boundaries", meta = (EditCondition = "ConstructWorkerBoundaries", ConfigRestartRequired = false, DisplayName = "Delay To Start Spawning Cubes"))
+	float DelayToStartSpawningCubes;
+
+	UPROPERTY(EditAnywhere, config, Category = "Visualizing Worker Boundaries", meta = (EditCondition = "ConstructWorkerBoundaries", ConfigRestartRequired = false, DisplayName = "Boundary Wall Scale Z"))
+	float WallScaleZ;
+
 	/**
 	 * Limit the number of actors which are replicated per tick to the number specified.
 	 * This acts as a hard limit to the number of actors per frame but nothing else. It's recommended to set this value to around 100~ (experimentation recommended).

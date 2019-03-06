@@ -1,12 +1,14 @@
 #include "VisualizeWorkerColors.h"
 #include "BoundaryCube.h"
 #include "UnrealNetwork.h"
+#include "SpatialGDkSettings.h"
+
 #pragma  optimize("", off)
 
 AVisualizeWorkerColors::AVisualizeWorkerColors()
 {
 	PrimaryActorTick.bCanEverTick = true;
-	LastSpawnedIndex	= 0;
+	LastSpawnedIndex	 = 0;
 	bReplicates          = true;
 	ObjectColorsInWorker = FColor::MakeRandomColor();
 }
@@ -14,16 +16,17 @@ AVisualizeWorkerColors::AVisualizeWorkerColors()
 void AVisualizeWorkerColors::BeginPlay()
 {
 	Super::BeginPlay();
-	if (Role == ROLE_Authority && ConstructWorkerBoundaries)
-	{
-		InitGrid2D();
-		FTimerHandle UnusedHandle;
-		GetWorldTimerManager().SetTimer(UnusedHandle, this, &AVisualizeWorkerColors::SpawnBoundaryCubes, DelayToStartSpawningCubes, false);
-	}
 }
 
 void AVisualizeWorkerColors::OnAuthorityGained()
 {
+	const USpatialGDKSettings* const GDKSettings = GetDefault<USpatialGDKSettings>();
+	if (Role == ROLE_Authority && GDKSettings->ConstructWorkerBoundaries)
+	{
+		InitGrid2D();
+		FTimerHandle UnusedHandle;
+		GetWorldTimerManager().SetTimer(UnusedHandle, this, &AVisualizeWorkerColors::SpawnBoundaryCubes, GDKSettings->DelayToStartSpawningCubes, false);
+	}
 	ABoundaryCube::BoundaryCubeOnAuthorityGained.BindUObject(this, &AVisualizeWorkerColors::OnBoundaryCubeOnAuthorityGained);
 }
 
@@ -62,9 +65,10 @@ void AVisualizeWorkerColors::OnBoundaryCubeOnAuthorityGained_Implementation(int 
 
 void AVisualizeWorkerColors::UpdateCubeVisibility()
 {
+	const USpatialGDKSettings* const GDKSettings = GetDefault<USpatialGDKSettings>();
 	for (int i = 0; i < Grid2D.Num(); ++i)
 	{
-		const uint32 Width = WorldDimensionX / ChunkEdgeLength;
+		const uint32 Width = GDKSettings->WorldDimensionX / GDKSettings->ChunkEdgeLength;
 
 		const uint32 leftUpperIndex  = i - Width - 1;
 		const uint32 upperIndex      = i - Width;
@@ -89,34 +93,60 @@ void AVisualizeWorkerColors::DeleteBoundaryWalls()
 	{
 		EntryIn->DestroyCube();
 	}
+	CachedBoundaryWalls.Empty();
 }
 
 void AVisualizeWorkerColors::CreateBoundaryWalls()
 {
+	const USpatialGDKSettings* const GDKSettings = GetDefault<USpatialGDKSettings>();
+
+	const int Width = GDKSettings->WorldDimensionX / GDKSettings->ChunkEdgeLength;
+	const int Height = GDKSettings->WorldDimensionZ / GDKSettings->ChunkEdgeLength;
+
 	const FRotator DefaultRotator{ 0, 0, 0 };
-	
+	const float Offset = GDKSettings->ChunkEdgeLength / 2.0f * 100.0f * 0.80f;
+
 	TArray<FTransform> WallSpawnData;
 
 	for (int EndIndex = 0; EndIndex < Grid2D.Num(); ++EndIndex)
 	{
+		// Check if we are at the end of a row.
+		// If so, we know we aren't going to have a wall so move on. 
+		if ((EndIndex + 1) % Width == 0)
+		{
+			continue;
+		}
+
 		const int StartIndex = EndIndex;
 
 		const FDebugBoundaryInfo InfoStart = Grid2D[StartIndex];
 
-		while (EndIndex < Grid2D.Num() && InfoStart.DebugCube->GetCurrentMeshColor() == Grid2D[EndIndex].DebugCube->GetCurrentMeshColor() && Grid2D[EndIndex].DebugCube->GetIsVisible())
+		
+		while (EndIndex < Grid2D.Num() && Grid2D[EndIndex].DebugCube->GetIsVisible() && AreColorsMatching(StartIndex, EndIndex))
 		{
 			++EndIndex;
 		}
+
 		
 		if (StartIndex < EndIndex - 1)
 		{
 			--EndIndex;
 			const FDebugBoundaryInfo InfoEnd = Grid2D[EndIndex];
-			WallSpawnData.Add(FTransform(DefaultRotator, (InfoStart.SpawnPosition + InfoEnd.SpawnPosition) / 2.0f, FVector(1, FVector::Dist2D(InfoStart.SpawnPosition, InfoEnd.SpawnPosition) / 100.0f + 1, 1)));
+			FVector Position = (InfoStart.SpawnPosition + InfoEnd.SpawnPosition) / 2.0f;
+
+			if (StartIndex + Width < Grid2D.Num() && AreColorsMatching(StartIndex, StartIndex + Width))
+			{
+				Position.X -= Offset;
+			}
+			else
+			{
+				Position.X += Offset;
+			}
+			WallSpawnData.Add(FTransform(DefaultRotator, Position, FVector(1, FVector::Dist2D(InfoStart.SpawnPosition, InfoEnd.SpawnPosition) / 100.0f + GDKSettings->ChunkEdgeLength, GDKSettings->WallScaleZ)));
 		}
 	}
 
-	const int Width = WorldDimensionX / ChunkEdgeLength;
+	
 	TSet<int> IndexesUsed;
 
 	for (int StartIndex = 0; StartIndex < Grid2D.Num(); ++StartIndex)
@@ -125,7 +155,7 @@ void AVisualizeWorkerColors::CreateBoundaryWalls()
 
 		const FDebugBoundaryInfo InfoStart = Grid2D[StartIndex];
 
-		while (EndIndex < Grid2D.Num() && InfoStart.DebugCube->GetCurrentMeshColor() == Grid2D[EndIndex].DebugCube->GetCurrentMeshColor() && Grid2D[EndIndex].DebugCube->GetIsVisible() && !IndexesUsed.Find(EndIndex))
+		while (EndIndex < Grid2D.Num() && Grid2D[EndIndex].DebugCube->GetIsVisible() && AreColorsMatching(StartIndex, EndIndex) && !IndexesUsed.Find(EndIndex))
 		{
 			IndexesUsed.Add(EndIndex);
 			EndIndex += Width;
@@ -135,11 +165,23 @@ void AVisualizeWorkerColors::CreateBoundaryWalls()
 		if (StartIndex < EndIndex)
 		{
 			const FDebugBoundaryInfo InfoEnd = Grid2D[EndIndex];
-			WallSpawnData.Add(FTransform(DefaultRotator, (InfoStart.SpawnPosition + InfoEnd.SpawnPosition) / 2.0f, FVector(FVector::Dist2D(InfoStart.SpawnPosition, InfoEnd.SpawnPosition) / 100.0f + 1, 1, 1)));
+
+			FVector Position = (InfoStart.SpawnPosition + InfoEnd.SpawnPosition) / 2.0f;
+
+			if (StartIndex + 1 < Grid2D.Num() && AreColorsMatching(StartIndex, StartIndex + 1))
+			{
+				Position.Y -= Offset;
+			}
+			else
+			{
+				Position.Y += Offset;
+			}
+
+			WallSpawnData.Add(FTransform(DefaultRotator, Position, FVector(FVector::Dist2D(InfoStart.SpawnPosition, InfoEnd.SpawnPosition) / 100.0f + GDKSettings->ChunkEdgeLength, 1, GDKSettings->WallScaleZ)));
 		}
 	}
 
-	for (auto& EntryIn : WallSpawnData)
+ 	for (auto& EntryIn : WallSpawnData)
 	{
 		ABoundaryCube* DebugCube = GetWorld()->SpawnActor<ABoundaryCube>(ABoundaryCube::StaticClass(), EntryIn);
 		DebugCube->Server_SetVisibility(true);
@@ -147,6 +189,10 @@ void AVisualizeWorkerColors::CreateBoundaryWalls()
 	}
 }
 
+bool AVisualizeWorkerColors::AreColorsMatching(const uint32 InLhs, const uint32 InRhs)
+{
+	return Grid2D[InLhs].DebugCube->GetCurrentMeshColor() == Grid2D[InRhs].DebugCube->GetCurrentMeshColor();
+}
 void AVisualizeWorkerColors::TurnOffAllCubeVisibility()
 {
 	for (auto& EntryIn : Grid2D)
@@ -165,11 +211,13 @@ bool AVisualizeWorkerColors::InitGrid2D_Validate()
 
 void AVisualizeWorkerColors::InitGrid2D_Implementation()
 {
-	const int Width    = WorldDimensionX / ChunkEdgeLength;
-	const int Height   = WorldDimensionZ / ChunkEdgeLength;
+	const USpatialGDKSettings* const GDKSettings = GetDefault<USpatialGDKSettings>();
 
-	const float Offset = ChunkEdgeLength / 2.0f * 100;
-	const float Scalar = ChunkEdgeLength * 100; // meters to centimeters
+	const int Width    = GDKSettings->WorldDimensionX / GDKSettings->ChunkEdgeLength;
+	const int Height   = GDKSettings->WorldDimensionZ / GDKSettings->ChunkEdgeLength;
+
+	const float Offset = GDKSettings->ChunkEdgeLength / 2.0f * 100;
+	const float Scalar = GDKSettings->ChunkEdgeLength * 100; // meters to centimeters
 
 	Grid2D.SetNum(Width * Height);
 
@@ -192,7 +240,7 @@ void AVisualizeWorkerColors::CompareChuncks(const int CenterCell, TArray<uint32>
 	{
 		if (EntryIn < (uint32)Grid2D.Num())
 		{
-			if (Grid2D[CenterCell].DebugCube->GetCurrentMeshColor() != Grid2D[EntryIn].DebugCube->GetCurrentMeshColor())
+			if (!AreColorsMatching(CenterCell, EntryIn))
 			{
 				Grid2D[EntryIn].DebugCube->Server_SetVisibility(true);
 				bVisibility = true;
@@ -217,32 +265,35 @@ bool AVisualizeWorkerColors::SpawnBoundaryCubes_Validate()
 
 void AVisualizeWorkerColors::SpawnBoundaryCubes_Implementation()
 {
-	const int Width  = WorldDimensionX / ChunkEdgeLength;
+	const USpatialGDKSettings* const GDKSettings = GetDefault<USpatialGDKSettings>();
+	UE_LOG(LogTemp, Warning, TEXT("%d SpawnBoundaryCubes_Implementation ROLE_AUTHORITY"), GPlayInEditorID);
+	const int Width  = GDKSettings->WorldDimensionX / GDKSettings->ChunkEdgeLength;
 
 	int CubesSpawnedThisRun = 0;
 
 	for (; LastSpawnedIndex < Grid2D.Num(); ++LastSpawnedIndex, ++CubesSpawnedThisRun)
 	{
-		ABoundaryCube* const DebugCube = GetWorld()->SpawnActorDeferred<ABoundaryCube>(ABoundaryCube::StaticClass(), FTransform(Grid2D[LastSpawnedIndex].SpawnPosition));
-		DebugCube->SetGridIndex(LastSpawnedIndex);
-		DebugCube->FinishSpawning(FTransform(Grid2D[LastSpawnedIndex].SpawnPosition));
-
-		if (CubesSpawnedThisRun >= CubesToSpawnAtATime)
+		if (CubesSpawnedThisRun >= GDKSettings->CubesToSpawnAtATime)
 		{
 			break;
 		}
+
+		ABoundaryCube* const DebugCube = GetWorld()->SpawnActorDeferred<ABoundaryCube>(ABoundaryCube::StaticClass(), FTransform(Grid2D[LastSpawnedIndex].SpawnPosition));
+		DebugCube->SetGridIndex(LastSpawnedIndex);
+		DebugCube->FinishSpawning(FTransform(Grid2D[LastSpawnedIndex].SpawnPosition));
 	}
 
 	if (LastSpawnedIndex < Grid2D.Num() - 1)
 	{
 		FTimerHandle UnusedHandle;
 		UE_LOG(LogTemp, Warning, TEXT("Queueing"));
-		GetWorldTimerManager().SetTimer(UnusedHandle, this, &AVisualizeWorkerColors::SpawnBoundaryCubes, DelayToSpawnNextGroup, false);
+		GetWorldTimerManager().SetTimer(UnusedHandle, this, &AVisualizeWorkerColors::SpawnBoundaryCubes, GDKSettings->DelayToSpawnNextGroup, false);
 	}
 }
 
 bool AVisualizeWorkerColors::IsOutterCube(const int CenterCell)
 {
-	const int Width  = WorldDimensionX / ChunkEdgeLength;
+	const USpatialGDKSettings* const GDKSettings = GetDefault<USpatialGDKSettings>();
+	const int Width  = GDKSettings->WorldDimensionX / GDKSettings->ChunkEdgeLength;
 	return (CenterCell - Width) < 0 || CenterCell >= (Grid2D.Num() - Width) || CenterCell % Width == 0 || (CenterCell + 1) % Width == 0;
 }

@@ -65,9 +65,6 @@ private:
 	bool bIsVisible;
 
 	UPROPERTY(EditAnywhere)
-	USceneComponent* SceneComponent;
-
-	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* StaticMeshComponent;
 
 	UPROPERTY()

@@ -17,14 +17,13 @@ ABoundaryCube::ABoundaryCube()
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> BoxMesh(TEXT("StaticMesh'/Game/Geometry/Meshes/1M_Cube.1M_Cube'"));
 	static ConstructorHelpers::FObjectFinder<UMaterial> BaseMaterial(TEXT("Material'/Game/Vehicle/Meshes/BaseMaterial.BaseMaterial'"));
 
-	SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComponent"));
-	SceneComponent->SetupAttachment(RootComponent);
+
 
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesh"));
 	StaticMeshComponent->SetStaticMesh(BoxMesh.Object);
 	StaticMeshComponent->SetMaterial(0, UMaterialInstanceDynamic::Create(BaseMaterial.Object, StaticMeshComponent));
 	StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	StaticMeshComponent->SetupAttachment(SceneComponent);
+	SetRootComponent(StaticMeshComponent);
 
 	WorkerColorComponent = CreateDefaultSubobject<UWorkerColorComponent>(TEXT("WorkerColorComponent"));
 	WorkerColorComponent->OnCurrentMeshColorUpdated.AddDynamic(this, &ABoundaryCube::OnCurrentMeshColorUpdated);

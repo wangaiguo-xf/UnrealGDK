@@ -135,22 +135,10 @@ namespace SpatialConstants
 
 	// Reserved entity IDs expire in 5 minutes, we will refresh them every 3 minutes to be safe.
 	const float ENTITY_RANGE_EXPIRATION_INTERVAL_SECONDS = 180.0f;
-<<<<<<< HEAD
-=======
+
 	// TODO: Make these easily configurable: UNR-984
 	const float HEARTBEAT_INTERVAL_SECONDS = 2.0f;
 	const float HEARTBEAT_TIMEOUT_SECONDS = 10.0f;
->>>>>>> parent of 6c57dc70... Merge branch 'master' into workerboundary
-<<<<<<< HEAD
-=======
-	// TODO: Make these easily configurable: UNR-984
-	const float HEARTBEAT_INTERVAL_SECONDS = 2.0f;
-	const float HEARTBEAT_TIMEOUT_SECONDS = 10.0f;
->>>>>>> parent of aae50974... Merge remote-tracking branch 'origin/feature/UNR-673-BulkReserveEntityIds' into workerboundary
-=======
->>>>>>> parent of 8806967d... revertin commit
-=======
->>>>>>> parent of be4f33d4... reverting commit
 
 	const float FIRST_COMMAND_RETRY_WAIT_SECONDS = 0.2f;
 	const uint32 MAX_NUMBER_COMMAND_ATTEMPTS = 5u;

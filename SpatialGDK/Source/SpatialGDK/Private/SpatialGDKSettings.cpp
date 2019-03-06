@@ -8,6 +8,14 @@ USpatialGDKSettings::USpatialGDKSettings(const FObjectInitializer& ObjectInitial
 	, HeartbeatIntervalSeconds(2.0f)
 	, HeartbeatTimeoutSeconds(10.0f)
 	, ActorReplicationRateLimit(0)
+	, WorldDimensionX(2000)
+	, WorldDimensionZ(2000)
+	, ChunkEdgeLength(50)
+	, CubesToSpawnAtATime(40)
+	, DelayToSpawnNextGroup(1.0f)
+	, DelayToStartSpawningCubes(5.0f)
+	, ConstructWorkerBoundaries(true)
+	, WallScaleZ(1.0f)
 {
 }
 
