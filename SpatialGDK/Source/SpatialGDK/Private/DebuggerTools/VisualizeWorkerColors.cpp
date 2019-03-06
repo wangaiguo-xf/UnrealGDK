@@ -104,7 +104,7 @@ void AVisualizeWorkerColors::CreateBoundaryWalls()
 	const int Height = GDKSettings->WorldDimensionZ / GDKSettings->ChunkEdgeLength;
 
 	const FRotator DefaultRotator{ 0, 0, 0 };
-	const float Offset = GDKSettings->ChunkEdgeLength / 2.0f * 100.0f * 0.80f;
+	const float Offset = GDKSettings->ChunkEdgeLength / 2.0f * 100.0f - 50.0f;
 
 	TArray<FTransform> WallSpawnData;
 
