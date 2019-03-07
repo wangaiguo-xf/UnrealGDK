@@ -150,7 +150,7 @@ Worker_RequestId USpatialSender::CreateEntity(USpatialActorChannel* Channel)
 	// We use this to indicate if a new Actor should be created or to link a pre-existing Actor
 	// when receiving an AddEntityOp.
 	TSchemaOption<FUnrealObjectRef> StablyNamedObjectRef;
-	if (Actor->IsFullNameStableForNetworking())
+	if (Actor->HasAnyFlags(RF_WasLoaded))
 	{
 		// Since we've already received the EntityId for this Actor. It is guaranteed to be resolved
 		// with the package map by this point
@@ -160,7 +160,8 @@ Worker_RequestId USpatialSender::CreateEntity(USpatialActorChannel* Channel)
 		FString TempPath = Actor->GetFName().ToString();
 		GEngine->NetworkRemapPath(NetDriver, TempPath, false /*bIsReading*/);
 
-		StablyNamedObjectRef = FUnrealObjectRef(0, 0, TempPath, OuterObjectRef);
+		bool bNoLoadOnClient = !PackageMap->CanClientLoadObject(Actor);
+		StablyNamedObjectRef = FUnrealObjectRef(0, 0, TempPath, OuterObjectRef, true);
 	}
 
 	TArray<Worker_ComponentData> ComponentDatas;
