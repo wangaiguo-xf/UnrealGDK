@@ -7,7 +7,9 @@
 #include "WorkerColorComponent.h"
 #include "UnrealNetwork.h"
 
-FBoundaryCubeOnAuthorityGained ABoundaryCube::BoundaryCubeOnAuthorityGained;
+#include "Kismet/GameplayStatics.h"
+#include "VisualizeWorkerColors.h"
+
 // Sets default values
 ABoundaryCube::ABoundaryCube()
 {
@@ -57,9 +59,19 @@ void ABoundaryCube::OnCurrentMeshColorUpdated(FColor InColor)
 void ABoundaryCube::OnAuthorityGained()
 {
 	WorkerColorComponent->Server_UpdateColorComponent();
-	if (BoundaryCubeOnAuthorityGained.IsBound() && GridIndex != -1)
+
+	if (WorkerColorComponent->GetPrevMeshColor() != WorkerColorComponent->GetCurrentMeshColor() && WorkerColorComponent->GetPrevMeshColor() != FColor::Black)
 	{
-		BoundaryCubeOnAuthorityGained.Execute(GridIndex, this);
+		TArray<AActor*> FoundActors;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), AVisualizeWorkerColors::StaticClass(), FoundActors);
+
+		if (FoundActors.Num())
+		{
+			if (AVisualizeWorkerColors* const WorkerColorObj = Cast<AVisualizeWorkerColors>(FoundActors[0]))
+			{
+				WorkerColorObj->BeginCreatingWalls();
+			}
+		}
 	}
 }
 FColor ABoundaryCube::GetCurrentMeshColor()
@@ -94,6 +106,7 @@ bool ABoundaryCube::CrossServer_SetVisibility_Validate(bool bInIsVisible)
 
 void ABoundaryCube::CrossServer_SetVisibility_Implementation(bool bInIsVisible)
 {
+	//UE_LOG(LogTemp, Warning, TEXT("%d GridIndex: %d"), GPlayInEditorID, GridIndex);
 	bIsVisible = bInIsVisible;
 }
 

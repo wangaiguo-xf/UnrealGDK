@@ -17,6 +17,7 @@ UWorkerColorComponent::UWorkerColorComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 	bReplicates = true;
 	CurrentMeshColor = FColor::Black;
+	PrevMeshColor	 = FColor::Black;
 	// ...
 }
 
@@ -30,6 +31,7 @@ void UWorkerColorComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UWorkerColorComponent, CurrentMeshColor);
+	DOREPLIFETIME(UWorkerColorComponent, PrevMeshColor);
 }
 
 bool UWorkerColorComponent::Server_UpdateColorComponent_Validate()
@@ -46,6 +48,7 @@ void UWorkerColorComponent::Server_UpdateColorComponent_Implementation()
 	{
 		if (AVisualizeWorkerColors* const WorkerColorObj = Cast<AVisualizeWorkerColors>(FoundActors[0]))
 		{
+			PrevMeshColor = CurrentMeshColor;
 			CurrentMeshColor = WorkerColorObj->GetObjectColorsInWorker();
 		}
 	}

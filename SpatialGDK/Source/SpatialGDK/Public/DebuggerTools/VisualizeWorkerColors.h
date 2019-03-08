@@ -18,6 +18,9 @@ struct FDebugBoundaryInfo
 	FVector SpawnPosition;
 
 	UPROPERTY(BlueprintReadWrite)
+	bool bIsVisible;
+
+	UPROPERTY(BlueprintReadWrite)
 	TWeakObjectPtr<ABoundaryCube> DebugCube;
 };
 
@@ -43,10 +46,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	const TArray<FDebugBoundaryInfo>& GetGrid2D() { return Grid2D; }
 
-	UFUNCTION(CrossServer, Reliable, WithValidation)
-	void OnBoundaryCubeOnAuthorityGained(int InGridIndex, ABoundaryCube* InBoundaryCube);
-
 	FColor GetObjectColorsInWorker() { return ObjectColorsInWorker; }
+
+	UFUNCTION(CrossServer, Reliable, WithValidation)
+	void BeginCreatingWalls();
 
 private:
 	UFUNCTION(Server, Reliable, WithValidation)

@@ -33,10 +33,17 @@ public:
 	UFUNCTION()
 	FColor GetCurrentMeshColor() { return CurrentMeshColor; }
 
+	UFUNCTION()
+	FColor GetPrevMeshColor() { return PrevMeshColor; }
+
 	UPROPERTY(BlueprintAssignable)
 	FOnCurrentMeshColorUpdated OnCurrentMeshColorUpdated;
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentMeshColor)
 	FColor CurrentMeshColor;
+
+	UPROPERTY(Replicated)
+	FColor PrevMeshColor;
+
 };

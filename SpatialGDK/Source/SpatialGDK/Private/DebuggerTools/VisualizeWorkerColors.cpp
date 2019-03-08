@@ -21,18 +21,17 @@ void AVisualizeWorkerColors::BeginPlay()
 void AVisualizeWorkerColors::OnAuthorityGained()
 {
 	const USpatialGDKSettings* const GDKSettings = GetDefault<USpatialGDKSettings>();
-	if (Role == ROLE_Authority && GDKSettings->ConstructWorkerBoundaries)
+	if (GDKSettings->ConstructWorkerBoundaries)
 	{
 		InitGrid2D();
 		FTimerHandle UnusedHandle;
 		GetWorldTimerManager().SetTimer(UnusedHandle, this, &AVisualizeWorkerColors::SpawnBoundaryCubes, GDKSettings->DelayToStartSpawningCubes, false);
 	}
-	ABoundaryCube::BoundaryCubeOnAuthorityGained.BindUObject(this, &AVisualizeWorkerColors::OnBoundaryCubeOnAuthorityGained);
 }
 
 void AVisualizeWorkerColors::OnAuthorityLost()
 {
-	ABoundaryCube::BoundaryCubeOnAuthorityGained.Unbind();
+
 }
 
 void AVisualizeWorkerColors::Tick(float DeltaTime)
@@ -40,19 +39,18 @@ void AVisualizeWorkerColors::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 }
 
-bool AVisualizeWorkerColors::OnBoundaryCubeOnAuthorityGained_Validate(int InGridIndex, ABoundaryCube* InBoundaryCube)
+bool AVisualizeWorkerColors::BeginCreatingWalls_Validate()
 {
 	return true;
 }
-
-void AVisualizeWorkerColors::OnBoundaryCubeOnAuthorityGained_Implementation(int InGridIndex, ABoundaryCube* InBoundaryCube)
+void AVisualizeWorkerColors::BeginCreatingWalls_Implementation()
 {
-	Grid2D[InGridIndex].DebugCube = InBoundaryCube;
-
 	for (auto& EntryIn : Grid2D)
 	{
-		if (!EntryIn.DebugCube.IsValid())
+		if (!EntryIn.DebugCube.IsValid() || EntryIn.DebugCube->GetCurrentMeshColor() == FColor::Black )
 		{
+			FTimerHandle UnusedHandle;
+			GetWorldTimerManager().SetTimer(UnusedHandle, this, &AVisualizeWorkerColors::BeginCreatingWalls, 2.0f, false);
 			return;
 		}
 	}
@@ -122,7 +120,7 @@ void AVisualizeWorkerColors::CreateBoundaryWalls()
 		const FDebugBoundaryInfo InfoStart = Grid2D[StartIndex];
 
 		
-		while (EndIndex < Grid2D.Num() && Grid2D[EndIndex].DebugCube->GetIsVisible() && AreColorsMatching(StartIndex, EndIndex))
+		while (EndIndex < Grid2D.Num() && Grid2D[EndIndex].bIsVisible && AreColorsMatching(StartIndex, EndIndex))
 		{
 			++EndIndex;
 		}
@@ -155,7 +153,7 @@ void AVisualizeWorkerColors::CreateBoundaryWalls()
 
 		const FDebugBoundaryInfo InfoStart = Grid2D[StartIndex];
 
-		while (EndIndex < Grid2D.Num() && Grid2D[EndIndex].DebugCube->GetIsVisible() && AreColorsMatching(StartIndex, EndIndex) && !IndexesUsed.Find(EndIndex))
+		while (EndIndex < Grid2D.Num() && Grid2D[EndIndex].bIsVisible && AreColorsMatching(StartIndex, EndIndex) && !IndexesUsed.Find(EndIndex))
 		{
 			IndexesUsed.Add(EndIndex);
 			EndIndex += Width;
@@ -193,13 +191,15 @@ bool AVisualizeWorkerColors::AreColorsMatching(const uint32 InLhs, const uint32 
 {
 	return Grid2D[InLhs].DebugCube->GetCurrentMeshColor() == Grid2D[InRhs].DebugCube->GetCurrentMeshColor();
 }
+
 void AVisualizeWorkerColors::TurnOffAllCubeVisibility()
 {
 	for (auto& EntryIn : Grid2D)
 	{
-		if (EntryIn.DebugCube->GetIsVisible())
+		if (EntryIn.bIsVisible)
 		{
 			EntryIn.DebugCube->Server_SetVisibility(false);
+			EntryIn.bIsVisible = false;
 		}
 	}
 }
@@ -254,7 +254,7 @@ void AVisualizeWorkerColors::CompareChuncks(const int CenterCell, TArray<uint32>
 			}
 		}
 	}
-
+	Grid2D[CenterCell].bIsVisible = bVisibility;
 	Grid2D[CenterCell].DebugCube->Server_SetVisibility(bVisibility);
 }
 
@@ -266,7 +266,6 @@ bool AVisualizeWorkerColors::SpawnBoundaryCubes_Validate()
 void AVisualizeWorkerColors::SpawnBoundaryCubes_Implementation()
 {
 	const USpatialGDKSettings* const GDKSettings = GetDefault<USpatialGDKSettings>();
-	UE_LOG(LogTemp, Warning, TEXT("%d SpawnBoundaryCubes_Implementation ROLE_AUTHORITY"), GPlayInEditorID);
 	const int Width  = GDKSettings->WorldDimensionX / GDKSettings->ChunkEdgeLength;
 
 	int CubesSpawnedThisRun = 0;
@@ -278,16 +277,21 @@ void AVisualizeWorkerColors::SpawnBoundaryCubes_Implementation()
 			break;
 		}
 
-		ABoundaryCube* const DebugCube = GetWorld()->SpawnActorDeferred<ABoundaryCube>(ABoundaryCube::StaticClass(), FTransform(Grid2D[LastSpawnedIndex].SpawnPosition));
-		DebugCube->SetGridIndex(LastSpawnedIndex);
-		DebugCube->FinishSpawning(FTransform(Grid2D[LastSpawnedIndex].SpawnPosition));
+		Grid2D[LastSpawnedIndex].DebugCube = GetWorld()->SpawnActorDeferred<ABoundaryCube>(ABoundaryCube::StaticClass(), FTransform(Grid2D[LastSpawnedIndex].SpawnPosition));
+		Grid2D[LastSpawnedIndex].DebugCube->SetGridIndex(LastSpawnedIndex);
+		Grid2D[LastSpawnedIndex].bIsVisible = true;
+		Grid2D[LastSpawnedIndex].DebugCube->FinishSpawning(FTransform(Grid2D[LastSpawnedIndex].SpawnPosition));
 	}
 
 	if (LastSpawnedIndex < Grid2D.Num() - 1)
 	{
 		FTimerHandle UnusedHandle;
-		UE_LOG(LogTemp, Warning, TEXT("Queueing"));
 		GetWorldTimerManager().SetTimer(UnusedHandle, this, &AVisualizeWorkerColors::SpawnBoundaryCubes, GDKSettings->DelayToSpawnNextGroup, false);
+	}
+	else
+	{
+		FTimerHandle UnusedHandle;
+		GetWorldTimerManager().SetTimer(UnusedHandle, this, &AVisualizeWorkerColors::BeginCreatingWalls, 2.0f, false);
 	}
 }
 

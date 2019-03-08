@@ -9,9 +9,6 @@
 class ABoundaryCube;
 class UWorkerColorComponent;
 
-DECLARE_DELEGATE_TwoParams(FBoundaryCubeOnAuthorityGained, int, ABoundaryCube*, InGridIndex, InBoundaryCube);
-
-
 UCLASS(SpatialType)
 class SPATIALGDK_API ABoundaryCube : public AActor
 {
@@ -48,8 +45,6 @@ public:
 	void DestroyCube();
 
 	virtual void OnAuthorityGained();
-
-	static FBoundaryCubeOnAuthorityGained BoundaryCubeOnAuthorityGained;
 
 private:
 	UFUNCTION(CrossServer, Reliable, WithValidation)
