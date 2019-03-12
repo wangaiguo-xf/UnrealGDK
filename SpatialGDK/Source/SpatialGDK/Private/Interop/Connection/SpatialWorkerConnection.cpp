@@ -77,7 +77,6 @@ void USpatialWorkerConnection::ConnectToReceptionist(bool bConnectAsClient)
 	if (ReceptionistConfig.WorkerType.IsEmpty())
 	{
 		ReceptionistConfig.WorkerType = bConnectAsClient ? SpatialConstants::ClientWorkerType : SpatialConstants::ServerWorkerType;
-		UE_LOG(LogSpatialWorkerConnection, Warning, TEXT("No worker type specified through commandline, defaulting to %s"), *ReceptionistConfig.WorkerType);
 	}
 
 	if (ReceptionistConfig.WorkerId.IsEmpty())
@@ -145,7 +144,6 @@ void USpatialWorkerConnection::ConnectToLegacyLocator()
 	if (LegacyLocatorConfig.WorkerType.IsEmpty())
 	{
 		LegacyLocatorConfig.WorkerType = SpatialConstants::ClientWorkerType;
-		UE_LOG(LogSpatialWorkerConnection, Warning, TEXT("No worker type specified through commandline, defaulting to %s"), *LegacyLocatorConfig.WorkerType);
 	}
 
 	if (LegacyLocatorConfig.WorkerId.IsEmpty())
@@ -256,7 +254,6 @@ void USpatialWorkerConnection::ConnectToLocator()
 	if (LocatorConfig.WorkerType.IsEmpty())
 	{
 		LocatorConfig.WorkerType = SpatialConstants::ClientWorkerType;
-		UE_LOG(LogSpatialWorkerConnection, Warning, TEXT("No worker type specified through commandline, defaulting to %s"), *LocatorConfig.WorkerType);
 	}
 
 	if (LocatorConfig.WorkerId.IsEmpty())

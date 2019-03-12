@@ -19,6 +19,7 @@ struct FConnectionConfig
 	{
 		const TCHAR* CommandLine = FCommandLine::Get();
 
+		FParse::Value(CommandLine, TEXT("workerType"), WorkerType);
 		FParse::Value(CommandLine, TEXT("workerId"), WorkerId);
 		FParse::Bool(CommandLine, TEXT("useExternalIpForBridge"), UseExternalIp);
 		//FParse::Bool(CommandLine, TEXT("enableProtocolLogging"), EnableProtocolLoggingAtStartup);
