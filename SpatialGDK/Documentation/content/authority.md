@@ -1,4 +1,3 @@
-<%(TOC)%>
 # Authority
 To work with authority in the GDK, it’s useful to refresh on authority in Unreal’s native networking. See:
 

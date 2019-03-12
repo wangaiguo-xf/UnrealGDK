@@ -146,27 +146,21 @@ Worker_RequestId USpatialSender::CreateEntity(USpatialActorChannel* Channel)
 		});
 	}
 
-	// We want to have a stably named ref if this is a loaded Actor.
-	// We use this to indicate if a new Actor should be created or to link a pre-existing Actor when receiving an AddEntityOp.
-	// Previously, IsFullNameStableForNetworking was used but this was only true if bNetLoadOnClient was true.
+	// Only want to have a stably object ref if this Actor is stably named.
+	// We use this to indicate if a new Actor should be created or to link a pre-existing Actor
+	// when receiving an AddEntityOp.
 	TSchemaOption<FUnrealObjectRef> StablyNamedObjectRef;
-	if (Actor->HasAnyFlags(RF_WasLoaded))
+	if (Actor->IsFullNameStableForNetworking())
 	{
 		// Since we've already received the EntityId for this Actor. It is guaranteed to be resolved
 		// with the package map by this point
 		FUnrealObjectRef OuterObjectRef = PackageMap->GetUnrealObjectRefFromObject(Actor->GetOuter());
-		if (OuterObjectRef == FUnrealObjectRef::UNRESOLVED_OBJECT_REF)
-		{
-			FNetworkGUID NetGUID = PackageMap->ResolveStablyNamedObject(Actor->GetOuter());
-			OuterObjectRef = PackageMap->GetUnrealObjectRefFromNetGUID(NetGUID);
-		}
 
 		// No path in SpatialOS should contain a PIE prefix.
 		FString TempPath = Actor->GetFName().ToString();
 		GEngine->NetworkRemapPath(NetDriver, TempPath, false /*bIsReading*/);
 
-		bool bNoLoadOnClient = !PackageMap->CanClientLoadObject(Actor);
-		StablyNamedObjectRef = FUnrealObjectRef(0, 0, TempPath, OuterObjectRef, true);
+		StablyNamedObjectRef = FUnrealObjectRef(0, 0, TempPath, OuterObjectRef);
 	}
 
 	TArray<Worker_ComponentData> ComponentDatas;

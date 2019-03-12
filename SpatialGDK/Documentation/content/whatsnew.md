@@ -1,4 +1,3 @@
-<%(TOC)%>
 # What's new in alpha?
 
 If you’ve used the GDK in pre-alpha, you may be interested in the latest changes.

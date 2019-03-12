@@ -37,7 +37,7 @@ gosu $NEW_USER ""${{SCRIPT}}"" ""$@""";
 
 
         // This is for internal use only. We do not support Linux clients.
-        private const string SimulatedPlayerWorkerShellScript =
+        private const string FakeClientWorkerShellScript =
 @"#!/bin/bash
 NEW_USER=unrealworker
 WORKER_ID=$1
@@ -158,20 +158,6 @@ exit /b !ERRORLEVEL!
                 });
 
                 var windowsNoEditorPath = Path.Combine(stagingDir, "WindowsNoEditor");
-
-                // Add a _ to the start of the exe name, to ensure it is the exe selected by the launcher.
-                // TO-DO: Remove this once LAUNCH-341 has been completed, and the _ is no longer necessary.
-                var oldExe = Path.Combine(windowsNoEditorPath, $"{gameName}.exe");
-                var renamedExe = Path.Combine(windowsNoEditorPath, $"_{gameName}.exe");
-                if (File.Exists(oldExe))
-                {
-                    File.Move(oldExe, renamedExe);
-                }
-                else
-                {
-                    Console.WriteLine("Could not find the executable to rename.");
-                }
-
                 Common.RunRedirected(@"%UNREAL_HOME%\Engine\Build\BatchFiles\RunUAT.bat", new[]
                 {
                     "ZipUtils",
@@ -179,13 +165,9 @@ exit /b !ERRORLEVEL!
                     "-archive=" + Quote(Path.Combine(outputDir, "UnrealClient@Windows.zip")),
                 });
             }
-            else if (gameName == baseGameName + "FakeClient")
+            else if (gameName == baseGameName + "FakeClient") // This is for internal use only. We do not support Linux clients.
             {
-                Common.WriteWarning("'FakeClient' has been renamed to 'SimulatedPlayer', please use this instead. It will create the same assembly under a different name: UnrealSimulatedPlayer@Linux.zip.");
-            }
-            else if (gameName == baseGameName + "SimulatedPlayer") // This is for internal use only. We do not support Linux clients.
-            {
-                Common.WriteHeading(" > Building simulated player.");
+                Common.WriteHeading(" > Building fakeclient.");
                 Common.RunRedirected(@"%UNREAL_HOME%\Engine\Build\BatchFiles\RunUAT.bat", new[]
                 {
                     "BuildCookRun",
@@ -214,8 +196,8 @@ exit /b !ERRORLEVEL!
                     additionalUATArgs
                 });
 
-                var linuxSimulatedPlayerPath = Path.Combine(stagingDir, "LinuxNoEditor");
-                File.WriteAllText(Path.Combine(linuxSimulatedPlayerPath, "StartWorker.sh"), SimulatedPlayerWorkerShellScript.Replace("\r\n", "\n"), new UTF8Encoding(false));
+                var linuxFakeClientPath = Path.Combine(stagingDir, "LinuxNoEditor");
+                File.WriteAllText(Path.Combine(linuxFakeClientPath, "StartWorker.sh"), FakeClientWorkerShellScript.Replace("\r\n", "\n"), new UTF8Encoding(false));
 
                 var workerCoordinatorPath = Path.GetFullPath(Path.Combine("../spatial", "build", "dependencies", "WorkerCoordinator"));
                 if (Directory.Exists(workerCoordinatorPath))
@@ -225,19 +207,18 @@ exit /b !ERRORLEVEL!
                         "/I",
                         "/Y",
                         workerCoordinatorPath,
-                        linuxSimulatedPlayerPath
+                        linuxFakeClientPath
                     });
                 } else
                 {
                     Console.WriteLine("worker coordinator path did not exist");
                 }
 
-                var archiveFileName = "UnrealSimulatedPlayer@Linux.zip";
                 Common.RunRedirected(@"%UNREAL_HOME%\Engine\Build\BatchFiles\RunUAT.bat", new[]
                 {
                     "ZipUtils",
-                    "-add=" + Quote(linuxSimulatedPlayerPath),
-                    "-archive=" + Quote(Path.Combine(outputDir, archiveFileName)),
+                    "-add=" + Quote(linuxFakeClientPath),
+                    "-archive=" + Quote(Path.Combine(outputDir, "UnrealFakeClient@Linux.zip")),
                 });
             }
             else if (gameName == baseGameName + "Server")
