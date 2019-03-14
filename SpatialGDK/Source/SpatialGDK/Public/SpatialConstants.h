@@ -120,6 +120,9 @@ namespace SpatialConstants
 
 	const Schema_FieldId HEARTBEAT_EVENT_ID                                 = 1;
 
+	const Schema_FieldId SHUTDOWN_MULTI_PROCESS_REQUEST_ID					= 1;
+	const Schema_FieldId SHUTDOWN_ADDITIONAL_SERVERS_EVENT_ID				= 1;
+
 	// TODO: Make these easily configurable: UNR-984
 	const float HEARTBEAT_INTERVAL_SECONDS = 2.0f;
 	const float HEARTBEAT_TIMEOUT_SECONDS = 10.0f;
