@@ -124,17 +124,6 @@ void FSpatialGDKEditor::GenerateSchema(FSimpleDelegate SuccessCallback, FSimpleD
 			
 			AssetRegistryModule.Get().GetAllAssets(Assets, true);
 
-			for (FAssetData Data : Assets)
-			{
-				FString IsLoaded = Data.IsAssetLoaded() ? TEXT("True") : TEXT("False");
-				FString InGamePackage = Data.PackagePath.ToString().StartsWith("/Game") ? TEXT("True") : TEXT("False");
-				FString HasGeneratedClass = Data.TagsAndValues.Contains("GeneratedClass") ? Data.TagsAndValues.FindRef("GeneratedClass") : TEXT("False");
-				FString NumReplicatedProperties = Data.TagsAndValues.Contains("NumReplicatedProperties") ? Data.TagsAndValues.FindRef("NumReplicatedProperties") : TEXT("n/a");
-
-				/*UE_LOG(LogTemp, Log, TEXT("Found %s, Loaded: %s, GeneratedClass: %s, InGamePackage: %s (%s), RepProperties: %s"),
-					*Data.GetFullName(), *IsLoaded, *HasGeneratedClass, *InGamePackage, *Data.PackagePath.ToString(), *NumReplicatedProperties);*/
-			}
-
 			// Filter assets to blueprint classes that are not loaded.
 			Assets = Assets.FilterByPredicate([](FAssetData Data) {
 				return (!Data.IsAssetLoaded() && Data.TagsAndValues.Contains("GeneratedClass") && Data.PackagePath.ToString().StartsWith("/Game"));	
@@ -143,10 +132,10 @@ void FSpatialGDKEditor::GenerateSchema(FSimpleDelegate SuccessCallback, FSimpleD
 			UE_LOG(LogTemp, Log, TEXT("---Filtered---"));
 
 
-			for (FAssetData Data : Assets)
+			/*for (FAssetData Data : Assets)
 			{
 				UE_LOG(LogTemp, Log, TEXT("Filtered %s"), *Data.GetFullName());
-			}
+			}*/
 
 			UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Found %d assets to load."), Assets.Num());
 			bFoundAssetsToLoad = true;
@@ -157,21 +146,29 @@ void FSpatialGDKEditor::GenerateSchema(FSimpleDelegate SuccessCallback, FSimpleD
 			FPlatformProcess::Sleep(0.1f);
 		}
 
+		FEvent* Latch = FGenericPlatformProcess::GetSynchEventFromPool(true);
+
 		TArray<TStrongObjectPtr<UObject>> AssetPointers;
 
 		for (FAssetData Data : Assets)
 		{
+			Latch->Reset();
+
 			FFunctionGraphTask::CreateAndDispatchWhenReady([&, Data]() {
 				if (auto GeneratedClassPathPtr = Data.TagsAndValues.Find("GeneratedClass"))
 				{
 					UE_LOG(LogTemp, Log, TEXT("Loading %s"), *Data.GetFullName());
 					const FString ClassObjectPath = FPackageName::ExportTextPathToObjectPath(*GeneratedClassPathPtr);
 					const FString ClassName = FPackageName::ObjectPathToObjectName(ClassObjectPath);
-					FSoftClassPath SoftPath = FSoftClassPath(ClassObjectPath);
-					AssetPointers.Add(TStrongObjectPtr<UClass>(SoftPath.TryLoadClass<UClass>()));
+					FSoftObjectPath SoftPath = FSoftObjectPath(ClassObjectPath);
+					AssetPointers.Add(TStrongObjectPtr<UObject>(SoftPath.TryLoad()));
 					UE_LOG(LogTemp, Log, TEXT("Loaded %s ClassPath: %s, ClassName: %s"), *Data.GetFullName(), *ClassObjectPath, *ClassName);
+					Latch->Trigger();
 				}
 			}, TStatId(), NULL, ENamedThreads::GameThread);
+
+			UE_LOG(LogTemp, Log, TEXT("Waiting for %s"), *Data.GetFullName());
+			Latch->Wait();
 		}
 
 		while (AssetPointers.Num() < Assets.Num())
