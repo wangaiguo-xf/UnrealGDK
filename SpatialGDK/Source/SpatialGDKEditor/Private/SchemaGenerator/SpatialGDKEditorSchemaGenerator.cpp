@@ -29,6 +29,7 @@
 #include "Utils/DataTypeUtilities.h"
 #include "Utils/SchemaDatabase.h"
 #include "Engine/WorldComposition.h"
+#include "ScopedSlowTask.h"
 
 DEFINE_LOG_CATEGORY(LogSpatialGDKSchemaGenerator);
 
@@ -428,33 +429,13 @@ void DeleteGeneratedSchemaFiles()
 
 void TryLoadExistingSchemaDatabase()
 {
-	TSoftObjectPtr<USchemaDatabase> SchemaDatabasePtr(FSoftObjectPath(TEXT("/Game/Spatial/SchemaDatabase.SchemaDatabase")));
-	SchemaDatabasePtr.LoadSynchronous();
-	const USchemaDatabase* const SchemaDatabase = SchemaDatabasePtr.Get();
+	UE_LOG(LogSpatialGDKSchemaGenerator, Log, TEXT("Delete Schema Database."));
 
-	if (SchemaDatabase != nullptr)
-	{
-		ClassPathToSchema = SchemaDatabase->ClassPathToSchema;
-		NextAvailableComponentId = SchemaDatabase->NextAvailableComponentId;
+	ClassPathToSchema.Empty();
+	NextAvailableComponentId = SpatialConstants::STARTING_GENERATED_COMPONENT_ID;
 
-		// Component Id generation was updated to be non-destructive, if we detect an old schema database, delete it.
-		if (ClassPathToSchema.Num() > 0 && NextAvailableComponentId == SpatialConstants::STARTING_GENERATED_COMPONENT_ID)
-		{
-			UE_LOG(LogSpatialGDKSchemaGenerator, Warning, TEXT("Detected an old schema database, it'll be reset."));
-			ClassPathToSchema.Empty();
-			DeleteGeneratedSchemaFiles();
-		}
-	}
-	else
-	{
-		UE_LOG(LogSpatialGDKSchemaGenerator, Log, TEXT("SchemaDatabase not found on Engine startup so the generated schema directory will be cleared out if it exists."));
-
-		ClassPathToSchema.Empty();
-		NextAvailableComponentId = SpatialConstants::STARTING_GENERATED_COMPONENT_ID;
-
-		// As a safety precaution, if the SchemaDatabase.uasset doesn't exist then make sure the schema generated folder is cleared as well. 
-		DeleteGeneratedSchemaFiles();
-	}
+	// As a safety precaution, if the SchemaDatabase.uasset doesn't exist then make sure the schema generated folder is cleared as well. 
+	DeleteGeneratedSchemaFiles();
 }
 
 bool TryLoadClassForSchemaGeneration(FString ClassPath)
@@ -501,42 +482,52 @@ void LoadDefaultGameModes()
 
 void PreProcessSchemaMap()
 {
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	ClassPathToSchema.Empty();
+	return;
+	//FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 
-	TArray<FString> EntriesToRemove;
-	for (const auto& EntryIn : ClassPathToSchema)
-	{
-		const FString ClassPath = EntryIn.Key;
+	//TArray<FString> EntriesToRemove;
+	//FScopedSlowTask PreProcessProgress((float)ClassPathToSchema.Num(), FText::FromString(FString::Printf(TEXT("Preprocessing %d entries in Schema Map"), ClassPathToSchema.Num())));
+	//PreProcessProgress.MakeDialog(true);
 
-		FString ObjectPath = EntryIn.Key;
-		int32 Index = 0;
-		ObjectPath.FindLastChar('_', Index); // Blueprints will always be suffixed by "_C"
-		if (Index != -1)
-		{
-			ObjectPath = ObjectPath.Mid(0, Index);
-			FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(FName(*ObjectPath));
+	//for (const auto& EntryIn : ClassPathToSchema)
+	//{
+	//	const FString ClassPath = EntryIn.Key;
+	//	if (PreProcessProgress.ShouldCancel())
+	//	{
+	//		return;
+	//	}
+	//	PreProcessProgress.EnterProgressFrame(1.f, FText::FromString(FString::Printf(TEXT("Preprocessing %s"), *ClassPath)));
 
-			// Skip over level blueprints since we can't load them.
-			if (AssetData.AssetClass.IsEqual(FName(TEXT("World"))))
-			{
-				continue;
-			}
-		}
+	//	FString ObjectPath = EntryIn.Key;
+	//	int32 Index = 0;
+	//	ObjectPath.FindLastChar('_', Index); // Blueprints will always be suffixed by "_C"
+	//	if (Index != -1)
+	//	{
+	//		ObjectPath = ObjectPath.Mid(0, Index);
+	//		FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(FName(*ObjectPath));
 
-		bool ClassExists = TryLoadClassForSchemaGeneration(ClassPath);
+	//		// Skip over level blueprints since we can't load them.
+	//		if (AssetData.AssetClass.IsEqual(FName(TEXT("World"))))
+	//		{
+	//			continue;
+	//		}
+	//	}
 
-		// If the class isn't loaded then mark the entry for removal from the map.
-		if(!ClassExists)
-		{
-			EntriesToRemove.Add(ClassPath);
-		}
-	}
+	//	bool ClassExists = TryLoadClassForSchemaGeneration(ClassPath);
 
-	// This will prevent any garbage/unused classes from sticking around in the SchemaDatabase as clutter.
-	for (const auto& EntryIn : EntriesToRemove)
-	{
-		ClassPathToSchema.Remove(EntryIn);
-	}
+	//	// If the class isn't loaded then mark the entry for removal from the map.
+	//	if(!ClassExists)
+	//	{
+	//		EntriesToRemove.Add(ClassPath);
+	//	}
+	//}
+
+	//// This will prevent any garbage/unused classes from sticking around in the SchemaDatabase as clutter.
+	//for (const auto& EntryIn : EntriesToRemove)
+	//{
+	//	ClassPathToSchema.Remove(EntryIn);
+	//}
 }
 
 bool SpatialGDKGenerateSchema()

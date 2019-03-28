@@ -21,6 +21,8 @@
 #include "AssetRegistryModule.h"
 #include "GeneralProjectSettings.h"
 
+#include "ScopedSlowTask.h"
+
 DEFINE_LOG_CATEGORY(LogSpatialGDKEditor);
 
 FSpatialGDKEditor::FSpatialGDKEditor()
@@ -35,7 +37,7 @@ void FSpatialGDKEditor::OnAssetLoaded(UObject* Asset)
 	// do not init worlds when running schema gen.
 	if (bSchemaGeneratorRunning)
 	{
-		UE_LOG(LogTemp, Log, TEXT("OnAssetLoaded %s but schema generating so ignoring."), *GetNameSafe(Asset));
+		//UE_LOG(LogTemp, Log, TEXT("OnAssetLoaded %s but schema generating so ignoring."), *GetFullNameSafe(Asset));
 		return;
 	}
 
@@ -80,12 +82,6 @@ void FSpatialGDKEditor::GenerateSchema(FSimpleDelegate SuccessCallback, FSimpleD
 
 	const USpatialGDKEditorSettings* SpatialGDKSettings = GetDefault<USpatialGDKEditorSettings>();
 
-	TArray<ULevelStreaming*> LoadedLevels;
-	if (SpatialGDKSettings->bLoadStreamingLevelsWhenGeneratingSchema)
-	{
-		//LoadedLevels = LoadAllStreamingLevels(GWorld);
-	}
-
 	PreProcessSchemaMap();
 
 	// Compile all dirty blueprints
@@ -93,7 +89,7 @@ void FSpatialGDKEditor::GenerateSchema(FSimpleDelegate SuccessCallback, FSimpleD
 	bool bPromptForCompilation = false;
 	UEditorEngine::ResolveDirtyBlueprints(bPromptForCompilation, ErroredBlueprints);
 
-	LoadDefaultGameModes();
+	//LoadDefaultGameModes();
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	UObjectLibrary& Library = *UObjectLibrary::CreateLibrary(UObject::StaticClass(), true, false);
@@ -111,129 +107,65 @@ void FSpatialGDKEditor::GenerateSchema(FSimpleDelegate SuccessCallback, FSimpleD
 		}
 	}
 
-	SchemaGeneratorResult = Async<bool>(EAsyncExecution::Thread,
-		[&, this, LoadedLevels]() {
+	UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Finding Assets To Load"));
 
-		UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Begin Schema Gen for %d Levels"), LoadedLevels.Num());
+	TArray<FAssetData> Assets;
 
-		bool bFoundAssetsToLoad = false;
-		TArray<FAssetData> Assets;
+	AssetRegistryModule.Get().GetAllAssets(Assets, true);
 
-		FFunctionGraphTask::CreateAndDispatchWhenReady([&]() {
-			UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Finding Assets To Load"));
-			
-			AssetRegistryModule.Get().GetAllAssets(Assets, true);
+	// Filter assets to blueprint classes that are not loaded.
+	Assets = Assets.FilterByPredicate([](FAssetData Data) {
+		return (!Data.IsAssetLoaded() && Data.TagsAndValues.Contains("GeneratedClass") && Data.PackagePath.ToString().StartsWith("/Game"));
+	});
 
-			// Filter assets to blueprint classes that are not loaded.
-			Assets = Assets.FilterByPredicate([](FAssetData Data) {
-				return (!Data.IsAssetLoaded() && Data.TagsAndValues.Contains("GeneratedClass") && Data.PackagePath.ToString().StartsWith("/Game"));	
-			});
+	UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Found %d assets to load."), Assets.Num());
 
-			UE_LOG(LogTemp, Log, TEXT("---Filtered---"));
+	TArray<TStrongObjectPtr<UObject>> AssetPointers;
+	FScopedSlowTask LoadAssetsProgress((float)Assets.Num() + 3.f, FText::FromString(FString::Printf(TEXT("Loading %d Assets before generating schema"), Assets.Num())));
+	LoadAssetsProgress.MakeDialog(true);
 
-
-			/*for (FAssetData Data : Assets)
-			{
-				UE_LOG(LogTemp, Log, TEXT("Filtered %s"), *Data.GetFullName());
-			}*/
-
-			UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Found %d assets to load."), Assets.Num());
-			bFoundAssetsToLoad = true;
-		}, TStatId(), NULL, ENamedThreads::BackgroundThreadPriority);
-
-		while (!bFoundAssetsToLoad)
-		{
-			FPlatformProcess::Sleep(0.1f);
-		}
-
-		FEvent* Latch = FGenericPlatformProcess::GetSynchEventFromPool(true);
-
-		TArray<TStrongObjectPtr<UObject>> AssetPointers;
-
-		for (FAssetData Data : Assets)
-		{
-			Latch->Reset();
-
-			FFunctionGraphTask::CreateAndDispatchWhenReady([&, Data]() {
-				if (auto GeneratedClassPathPtr = Data.TagsAndValues.Find("GeneratedClass"))
-				{
-					UE_LOG(LogTemp, Log, TEXT("Loading %s"), *Data.GetFullName());
-					const FString ClassObjectPath = FPackageName::ExportTextPathToObjectPath(*GeneratedClassPathPtr);
-					const FString ClassName = FPackageName::ObjectPathToObjectName(ClassObjectPath);
-					FSoftObjectPath SoftPath = FSoftObjectPath(ClassObjectPath);
-					AssetPointers.Add(TStrongObjectPtr<UObject>(SoftPath.TryLoad()));
-					UE_LOG(LogTemp, Log, TEXT("Loaded %s ClassPath: %s, ClassName: %s"), *Data.GetFullName(), *ClassObjectPath, *ClassName);
-					Latch->Trigger();
-				}
-			}, TStatId(), NULL, ENamedThreads::GameThread);
-
-			UE_LOG(LogTemp, Log, TEXT("Waiting for %s"), *Data.GetFullName());
-			Latch->Wait();
-		}
-
-		while (AssetPointers.Num() < Assets.Num())
-		{
-			FPlatformProcess::Sleep(0.1f);
-		}
-
-		bool bPreprocessed = false;
-
-		FFunctionGraphTask::CreateAndDispatchWhenReady([&]() {
-			UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Preprocessing Map"));
-			PreProcessSchemaMap();
-			UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Preprocessing Map: done."));
-			bPreprocessed = true;
-		}, TStatId(), NULL, ENamedThreads::GameThread);
-
-		while (!bPreprocessed)
-		{
-			FPlatformProcess::Sleep(0.1f);
-		}
-
-		UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Do Schema Gen"));
-		bool bResult = SpatialGDKGenerateSchema();
-		UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Do Schema Gen: done"));
-
-		bool bGarbageCollectionFinished = false;
-		AssetPointers.Empty();
-
-		FFunctionGraphTask::CreateAndDispatchWhenReady([&]() {
-			UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Triggering GC"));
-			CollectGarbage(RF_NoFlags);
-			UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Triggering GC: done."));
-			bGarbageCollectionFinished = true;
-		}, TStatId(), NULL, ENamedThreads::GameThread);
-
-		while (!bGarbageCollectionFinished)
-		{
-			FPlatformProcess::Sleep(0.1f);
-		}
-
-		return bResult;
-	},
-		[this, bCachedSpatialNetworking, ErroredBlueprints, SuccessCallback, FailureCallback]()
+	for (FAssetData Data : Assets)
 	{
-		// We delay printing this error until after the schema spam to make it have a higher chance of being noticed.
-		if (ErroredBlueprints.Num() > 0)
-		{
-			UE_LOG(LogSpatialGDKEditor, Error, TEXT("Errors compiling blueprints during schema generation! The following blueprints did not have schema generated for them:"));
-			for (const auto& Blueprint : ErroredBlueprints)
-			{
-				UE_LOG(LogSpatialGDKEditor, Error, TEXT("%s"), *GetPathNameSafe(Blueprint));
-			}
-		}
-		
-		if (!SchemaGeneratorResult.IsReady() || SchemaGeneratorResult.Get() != true)
-		{
+		if (LoadAssetsProgress.ShouldCancel()) {
 			FailureCallback.ExecuteIfBound();
+			bSchemaGeneratorRunning = false;
+			return;
 		}
-		else
+		LoadAssetsProgress.EnterProgressFrame(1, FText::FromString(FString::Printf(TEXT("Loading %s"), *Data.AssetName.ToString())));
+		if (auto GeneratedClassPathPtr = Data.TagsAndValues.Find("GeneratedClass"))
 		{
-			SuccessCallback.ExecuteIfBound();
+			//UE_LOG(LogTemp, Log, TEXT("Loading %s"), *Data.GetFullName());
+			const FString ClassObjectPath = FPackageName::ExportTextPathToObjectPath(*GeneratedClassPathPtr);
+			const FString ClassName = FPackageName::ObjectPathToObjectName(ClassObjectPath);
+			FSoftObjectPath SoftPath = FSoftObjectPath(ClassObjectPath);
+			AssetPointers.Add(TStrongObjectPtr<UObject>(SoftPath.TryLoad()));
+			//UE_LOG(LogTemp, Log, TEXT("Loaded %s ClassPath: %s, ClassName: %s"), *Data.GetFullName(), *ClassObjectPath, *ClassName);
 		}
-		GetMutableDefault<UGeneralProjectSettings>()->bSpatialNetworking = bCachedSpatialNetworking;
-		bSchemaGeneratorRunning = false;
-	});                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+	}
+
+	UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Do Schema Gen"));
+	LoadAssetsProgress.EnterProgressFrame(1, FText::FromString(FString::Printf(TEXT("Generating Schema"))));
+	bool bResult = SpatialGDKGenerateSchema();
+	UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Do Schema Gen: done"));
+
+	UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Triggering GC"));
+	LoadAssetsProgress.EnterProgressFrame(1, FText::FromString(FString::Printf(TEXT("Running Garbage Collection"))));
+	AssetPointers.Empty();
+	Assets.Empty();
+	CollectGarbage(RF_NoFlags);
+	UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Triggering GC: done."));
+
+	if (bResult)
+	{
+		SuccessCallback.ExecuteIfBound();
+	}
+	else
+	{
+		FailureCallback.ExecuteIfBound();
+	}
+
+	GetMutableDefault<UGeneralProjectSettings>()->bSpatialNetworking = bCachedSpatialNetworking;
+	bSchemaGeneratorRunning = false;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
 }
 
 void FSpatialGDKEditor::GenerateSnapshot(UWorld* World, FString SnapshotFilename, FSimpleDelegate SuccessCallback, FSimpleDelegate FailureCallback, FSpatialGDKEditorErrorHandler ErrorCallback)
