@@ -15,6 +15,11 @@ public:
 	FSpatialGDKEditor();
 
 	void GenerateSchema(FSimpleDelegate SuccessCallback, FSimpleDelegate FailureCallback, FSpatialGDKEditorErrorHandler ErrorCallback);
+
+	bool GenerateSchemaIncremental();
+
+	bool GenerateSchemaFull();
+
 	void GenerateSnapshot(UWorld* World, FString SnapshotFilename, FSimpleDelegate SuccessCallback, FSimpleDelegate FailureCallback, FSpatialGDKEditorErrorHandler ErrorCallback);
 
 	bool IsSchemaGeneratorRunning() { return bSchemaGeneratorRunning; }

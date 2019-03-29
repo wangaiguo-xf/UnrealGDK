@@ -266,21 +266,19 @@ FLevelData GenerateSchemaForSublevel(UWorld* World)
 	{
 		for (const auto& LevelStreamingObject : World->GetStreamingLevels())
 		{
-			LevelData.SublevelNameToComponentId.Add(LevelStreamingObject->GetLoadedLevel()->GetOuter()->GetName(), SpatialConstants::INVALID_COMPONENT_ID);
+			LevelData.SublevelNameToComponentId.Add(LevelStreamingObject->PackageNameToLoad.ToString(), SpatialConstants::INVALID_COMPONENT_ID);
 		}
 	}
 
 	return LevelData;
 }
 
-void GenerateSchemaForSublevels(const FString& SchemaPath)
+void GenerateSchemaForSublevels(const FString& SchemaPath, UWorld* World)
 {
-	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
-
-	FLevelData LevelData = GenerateSchemaForSublevel(EditorWorld);
+	FLevelData LevelData = GenerateSchemaForSublevel(World);
 	if (LevelData.SublevelNameToComponentId.Num() > 0)
 	{
-		LevelPathToLevelData.Add(EditorWorld->GetMapName(), LevelData);
+		LevelPathToLevelData.Add(World->GetMapName(), LevelData);
 	}
 
 	if (LevelPathToLevelData.Num() == 0)
@@ -320,6 +318,11 @@ void GenerateSchemaForSublevels(const FString& SchemaPath)
 
 	LastSublevelComponentId = IdGenerator.GetCurrentId();
 	NextAvailableComponentId = IdGenerator.GetNextAvailableId();
+}
+
+void GenerateSchemaForEditorWorld(const FString& SchemaPath)
+{
+	GenerateSchemaForSublevels(SchemaPath, GEditor->GetEditorWorldContext().World());
 }
 
 FString GenerateIntermediateDirectory()
@@ -530,7 +533,7 @@ void PreProcessSchemaMap()
 	//}
 }
 
-bool SpatialGDKGenerateSchema()
+bool SpatialGDKGenerateSchema(TArray<FAssetData> WorldAssets)
 {
 	ClassToSchemaName.Empty();
 	UsedSchemaNames.Empty();
@@ -570,8 +573,20 @@ bool SpatialGDKGenerateSchema()
 
 	GenerateSchemaFromClasses(TypeInfos, SchemaOutputPath);
 
-	GenerateSchemaForSublevels(SchemaOutputPath);
+	GenerateSchemaForEditorWorld(SchemaOutputPath);
 
+	FScopedSlowTask LoadingWorldProgress((float)WorldAssets.Num());
+	for (FAssetData Asset : WorldAssets)
+	{
+		LoadingWorldProgress.EnterProgressFrame(1.f, FText::FromString(FString::Printf(TEXT("Loading World %s"), *Asset.GetFullName())));
+		
+		if (UWorld* WorldAsset = Cast<UWorld>(Asset.GetAsset()))
+		{
+			UE_LOG(LogTemp, Display, TEXT("Found World %s, Load Sublevel schema for it."), *GetFullNameSafe(WorldAsset));
+			GenerateSchemaForSublevels(SchemaOutputPath, WorldAsset);
+		}
+	}
+	
 	SaveSchemaDatabase();
 
 	// Allow the garbage collector to clean up classes that were manually loaded and forced to keep alive for the Schema Generator process.

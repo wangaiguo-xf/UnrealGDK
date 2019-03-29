@@ -20,7 +20,8 @@ public:
 	virtual void RegisterCommands() override;
 
 public:
-	TSharedPtr<FUICommandInfo> CreateSpatialGDKSchema;
+	TSharedPtr<FUICommandInfo> CreateSpatialGDKSchemaFull;
+	TSharedPtr<FUICommandInfo> CreateSpatialGDKSchemaIncremental;
 	TSharedPtr<FUICommandInfo> CreateSpatialGDKSnapshot;
 	TSharedPtr<FUICommandInfo> StartSpatialOSStackAction;
 	TSharedPtr<FUICommandInfo> StopSpatialOSStackAction;

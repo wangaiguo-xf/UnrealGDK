@@ -128,8 +128,13 @@ bool FSpatialGDKEditorToolbarModule::CanExecuteSnapshotGenerator() const
 void FSpatialGDKEditorToolbarModule::MapActions(TSharedPtr<class FUICommandList> InPluginCommands)
 {
 	InPluginCommands->MapAction(
-		FSpatialGDKEditorToolbarCommands::Get().CreateSpatialGDKSchema,
-		FExecuteAction::CreateRaw(this, &FSpatialGDKEditorToolbarModule::SchemaGenerateButtonClicked),
+		FSpatialGDKEditorToolbarCommands::Get().CreateSpatialGDKSchemaIncremental,
+		FExecuteAction::CreateRaw(this, &FSpatialGDKEditorToolbarModule::SchemaGenerateIncrementalButtonClicked),
+		FCanExecuteAction::CreateRaw(this, &FSpatialGDKEditorToolbarModule::CanExecuteSchemaGenerator));
+
+	InPluginCommands->MapAction(
+		FSpatialGDKEditorToolbarCommands::Get().CreateSpatialGDKSchemaFull,
+		FExecuteAction::CreateRaw(this, &FSpatialGDKEditorToolbarModule::SchemaGenerateFullButtonClicked),
 		FCanExecuteAction::CreateRaw(this, &FSpatialGDKEditorToolbarModule::CanExecuteSchemaGenerator));
 
 	InPluginCommands->MapAction(
@@ -186,7 +191,7 @@ void FSpatialGDKEditorToolbarModule::AddMenuExtension(FMenuBuilder& Builder)
 {
 	Builder.BeginSection("SpatialOS Unreal GDK", LOCTEXT("SpatialOS Unreal GDK", "SpatialOS Unreal GDK"));
 	{
-		Builder.AddMenuEntry(FSpatialGDKEditorToolbarCommands::Get().CreateSpatialGDKSchema);
+		Builder.AddMenuEntry(FSpatialGDKEditorToolbarCommands::Get().CreateSpatialGDKSchemaIncremental);
 		Builder.AddMenuEntry(FSpatialGDKEditorToolbarCommands::Get().CreateSpatialGDKSnapshot);
 		Builder.AddMenuEntry(FSpatialGDKEditorToolbarCommands::Get().StartSpatialOSStackAction);
 		Builder.AddMenuEntry(FSpatialGDKEditorToolbarCommands::Get().StopSpatialOSStackAction);
@@ -198,11 +203,32 @@ void FSpatialGDKEditorToolbarModule::AddMenuExtension(FMenuBuilder& Builder)
 void FSpatialGDKEditorToolbarModule::AddToolbarExtension(FToolBarBuilder& Builder)
 {
 	Builder.AddSeparator(NAME_None);
-	Builder.AddToolBarButton(FSpatialGDKEditorToolbarCommands::Get().CreateSpatialGDKSchema);
+	Builder.AddToolBarButton(FSpatialGDKEditorToolbarCommands::Get().CreateSpatialGDKSchemaIncremental);
+	Builder.AddComboButton(
+		FUIAction(),
+		FOnGetContent::CreateRaw(this, &FSpatialGDKEditorToolbarModule::GenerateGDKSchemaMenuContent),
+		LOCTEXT("GDKSchemaCombo_Label", "Schema Generation Options"),
+		LOCTEXT(" GDKSchemaCombo_ToolTip", "Schema Generation Options Menu"),
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "GDK.Schema"),
+		true
+	);
 	Builder.AddToolBarButton(FSpatialGDKEditorToolbarCommands::Get().CreateSpatialGDKSnapshot);
 	Builder.AddToolBarButton(FSpatialGDKEditorToolbarCommands::Get().StartSpatialOSStackAction);
 	Builder.AddToolBarButton(FSpatialGDKEditorToolbarCommands::Get().StopSpatialOSStackAction);
 	Builder.AddToolBarButton(FSpatialGDKEditorToolbarCommands::Get().LaunchInspectorWebPageAction);
+}
+
+TSharedRef<SWidget> FSpatialGDKEditorToolbarModule::GenerateGDKSchemaMenuContent()
+{
+	FMenuBuilder MenuBuilder(true, PluginCommands);
+
+	MenuBuilder.BeginSection(NAME_None, LOCTEXT("GDKSchemaOptionsHeader", "Schema Generation"));
+	{
+		MenuBuilder.AddMenuEntry(FSpatialGDKEditorToolbarCommands::Get().CreateSpatialGDKSchemaFull);
+	}
+	MenuBuilder.EndSection();
+
+	return MenuBuilder.MakeWidget();
 }
 
 void FSpatialGDKEditorToolbarModule::CreateSnapshotButtonClicked()
@@ -218,15 +244,15 @@ void FSpatialGDKEditorToolbarModule::CreateSnapshotButtonClicked()
 		FSpatialGDKEditorErrorHandler::CreateLambda([](FString ErrorText) { FMessageDialog::Debugf(FText::FromString(ErrorText)); }));
 }
 
-void FSpatialGDKEditorToolbarModule::SchemaGenerateButtonClicked()
+void FSpatialGDKEditorToolbarModule::SchemaGenerateIncrementalButtonClicked()
 {
-	ShowTaskStartNotification("Generating Schema");
-	SpatialGDKEditorInstance->GenerateSchema(
-		FSimpleDelegate::CreateLambda([this]() { ShowSuccessNotification("Schema Generation Completed!"); }),
-		FSimpleDelegate::CreateLambda([this]() { ShowFailedNotification("Schema Generation Failed"); }),
-		FSpatialGDKEditorErrorHandler::CreateLambda([](FString ErrorText) { FMessageDialog::Debugf(FText::FromString(ErrorText)); }));
+	SpatialGDKEditorInstance->GenerateSchemaIncremental();
 }
-		
+
+void FSpatialGDKEditorToolbarModule::SchemaGenerateFullButtonClicked()
+{
+	SpatialGDKEditorInstance->GenerateSchemaFull();
+}
 
 void FSpatialGDKEditorToolbarModule::ShowTaskStartNotification(const FString& NotificationText)
 {

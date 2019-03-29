@@ -110,15 +110,20 @@ void FSpatialGDKEditor::GenerateSchema(FSimpleDelegate SuccessCallback, FSimpleD
 	UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Finding Assets To Load"));
 
 	TArray<FAssetData> Assets;
+	TArray<FAssetData> WorldAssets;
 
 	AssetRegistryModule.Get().GetAllAssets(Assets, true);
+
+	WorldAssets = Assets.FilterByPredicate([](FAssetData Data) {
+		return (Data.AssetClass == UWorld::StaticClass()->GetFName());
+	});
 
 	// Filter assets to blueprint classes that are not loaded.
 	Assets = Assets.FilterByPredicate([](FAssetData Data) {
 		return (!Data.IsAssetLoaded() && Data.TagsAndValues.Contains("GeneratedClass") && Data.PackagePath.ToString().StartsWith("/Game"));
 	});
 
-	UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Found %d assets to load."), Assets.Num());
+	UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Found %d assets to load. %d Worlds"), Assets.Num(), WorldAssets.Num());
 
 	TArray<TStrongObjectPtr<UObject>> AssetPointers;
 	FScopedSlowTask LoadAssetsProgress((float)Assets.Num() + 3.f, FText::FromString(FString::Printf(TEXT("Loading %d Assets before generating schema"), Assets.Num())));
@@ -145,7 +150,7 @@ void FSpatialGDKEditor::GenerateSchema(FSimpleDelegate SuccessCallback, FSimpleD
 
 	UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Do Schema Gen"));
 	LoadAssetsProgress.EnterProgressFrame(1, FText::FromString(FString::Printf(TEXT("Generating Schema"))));
-	bool bResult = SpatialGDKGenerateSchema();
+	bool bResult = SpatialGDKGenerateSchema(WorldAssets);
 	UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Do Schema Gen: done"));
 
 	UE_LOG(LogSpatialGDKSchemaGenerator, Display, TEXT("Triggering GC"));
@@ -166,6 +171,18 @@ void FSpatialGDKEditor::GenerateSchema(FSimpleDelegate SuccessCallback, FSimpleD
 
 	GetMutableDefault<UGeneralProjectSettings>()->bSpatialNetworking = bCachedSpatialNetworking;
 	bSchemaGeneratorRunning = false;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+}
+
+bool FSpatialGDKEditor::GenerateSchemaIncremental()
+{
+	UE_LOG(LogTemp, Log, TEXT("Do Incremental"));
+	return true;
+}
+
+bool FSpatialGDKEditor::GenerateSchemaFull()
+{
+	UE_LOG(LogTemp, Log, TEXT("Do Full Rebuild."));
+	return true;
 }
 
 void FSpatialGDKEditor::GenerateSnapshot(UWorld* World, FString SnapshotFilename, FSimpleDelegate SuccessCallback, FSimpleDelegate FailureCallback, FSpatialGDKEditorErrorHandler ErrorCallback)

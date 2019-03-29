@@ -3,10 +3,11 @@
 #pragma once
 
 #include "Logging/LogMacros.h"
+#include "UObject/StrongObjectPtr.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSpatialGDKSchemaGenerator, Log, All);
 
-SPATIALGDKEDITOR_API bool SpatialGDKGenerateSchema();
+SPATIALGDKEDITOR_API bool SpatialGDKGenerateSchema(TArray<FAssetData> WorldAssets);
 
 SPATIALGDKEDITOR_API void TryLoadExistingSchemaDatabase();
 

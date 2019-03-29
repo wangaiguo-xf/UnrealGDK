@@ -51,7 +51,8 @@ private:
 
 	void LaunchInspectorWebpageButtonClicked();
 	void CreateSnapshotButtonClicked();
-	void SchemaGenerateButtonClicked();
+	void SchemaGenerateIncrementalButtonClicked();
+	void SchemaGenerateFullButtonClicked();
 	void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
 
 private:
@@ -65,6 +66,8 @@ private:
 	void ShowFailedNotification(const FString& NotificationText);
 
 	bool GenerateDefaultLaunchConfig(const FString& LaunchConfigPath) const;
+
+	TSharedRef<SWidget> GenerateGDKSchemaMenuContent();
 
 	static void ShowCompileLog();
 
