@@ -43,7 +43,7 @@ private:
 	QueryConstraint CreateUserDefinedConstraints();
 
 	// System Defined Constraints
-	QueryConstraint CreateCheckoutRadiusConstraint();
+	QueryConstraint CreateActorInterestConstraint();
 	QueryConstraint CreateAlwaysInterestedConstraint();
 
 	// Only checkout entities that are in loaded sublevels

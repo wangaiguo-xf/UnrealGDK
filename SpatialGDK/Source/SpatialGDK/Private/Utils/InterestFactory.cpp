@@ -6,6 +6,7 @@
 #include "Engine/Classes/GameFramework/Actor.h"
 #include "GameFramework/PlayerController.h"
 
+#include "Components/ActorInterestComponent.h"
 #include "EngineClasses/SpatialNetConnection.h"
 #include "EngineClasses/SpatialNetDriver.h"
 #include "EngineClasses/SpatialPackageMapClient.h"
@@ -148,14 +149,14 @@ QueryConstraint InterestFactory::CreateDefinedConstraints()
 
 QueryConstraint InterestFactory::CreateSystemDefinedConstraints()
 {
-	QueryConstraint CheckoutRadiusConstraint = CreateCheckoutRadiusConstraint();
+	QueryConstraint ActorInterestConstraint = CreateActorInterestConstraint();
 	QueryConstraint AlwaysInterestedConstraint = CreateAlwaysInterestedConstraint();
 
 	QueryConstraint SystemDefinedConstraints;
 
-	if (CheckoutRadiusConstraint.IsValid())
+	if (ActorInterestConstraint.IsValid())
 	{
-		SystemDefinedConstraints.OrConstraint.Add(CheckoutRadiusConstraint);
+		SystemDefinedConstraints.OrConstraint.Add(ActorInterestConstraint);
 	}
 
 	if (AlwaysInterestedConstraint.IsValid())
@@ -171,14 +172,21 @@ QueryConstraint InterestFactory::CreateUserDefinedConstraints()
 	return QueryConstraint{};
 }
 
-QueryConstraint InterestFactory::CreateCheckoutRadiusConstraint()
+QueryConstraint InterestFactory::CreateActorInterestConstraint()
 {
-	QueryConstraint CheckoutRadiusConstraint;
+	QueryConstraint ActorInterestConstraint;
 
-	float CheckoutRadius = Actor->CheckoutRadius / 100.0f; // Convert to meters
-	CheckoutRadiusConstraint.RelativeCylinderConstraint = RelativeCylinderConstraint{ CheckoutRadius };
+	TArray<UActorInterestComponent*> InterestComponents;
+	Actor->GetComponents<UActorInterestComponent>(InterestComponents);
+	float DefaultCheckoutRadius = 0.0f;
+	for (const UActorInterestComponent* InterestComponent : InterestComponents)
+	{
+		check(InterestComponent->DefaultCheckoutRadius >= 0.0f); // enforced by ClampMin on UProperty
+		DefaultCheckoutRadius = FMath::Max(DefaultCheckoutRadius, InterestComponent->DefaultCheckoutRadius / 100.0f);
+	}
+	ActorInterestConstraint.RelativeCylinderConstraint = RelativeCylinderConstraint{ DefaultCheckoutRadius };
 
-	return CheckoutRadiusConstraint;
+	return ActorInterestConstraint;
 }
 
 QueryConstraint InterestFactory::CreateAlwaysInterestedConstraint()
