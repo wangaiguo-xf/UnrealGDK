@@ -33,6 +33,9 @@ if [ ! -f $SCRIPT ]; then
     exit 1
 fi
 
+# Output the public IP address of the worker node (for vanilla Unreal client connections).
+curl -w ""\n"" -s bot.whatismyipaddress.com
+
 chmod +x $SCRIPT
 echo ""Running ${{SCRIPT}} to start worker...""
 gosu $NEW_USER ""${{SCRIPT}}"" ""$@""";
@@ -46,6 +49,8 @@ WORKER_ID=$1
 WORKER_NAME=$2
 shift 2
 
+touch ""/improbable/logs/${WORKER_ID}.log""
+
 # 2>/dev/null silences errors by redirecting stderr to the null device. This is done to prevent errors when a machine attempts to add the same user more than once.
 useradd $NEW_USER -m -d /improbable/logs/ >> ""/improbable/logs/${WORKER_ID}.log"" 2>&1
 chown -R $NEW_USER:$NEW_USER $(pwd) >> ""/improbable/logs/${WORKER_ID}.log"" 2>&1
@@ -53,8 +58,38 @@ chmod -R o+rw /improbable/logs >> ""/improbable/logs/${WORKER_ID}.log"" 2>&1
 SCRIPT=""$(pwd)/${WORKER_NAME}.sh""
 chmod +x $SCRIPT >> ""/improbable/logs/${WORKER_ID}.log"" 2>&1
 
-echo ""Trying to launch worker ${WORKER_NAME} with id ${WORKER_ID}"" > ""/improbable/logs/${WORKER_ID}.log""
+echo ""Trying to launch worker ${WORKER_NAME} with id ${WORKER_ID} and arguments $@"" > ""/improbable/logs/${WORKER_ID}.log""
 gosu $NEW_USER ""${SCRIPT}"" ""$@"" >> ""/improbable/logs/${WORKER_ID}.log"" 2>&1";
+
+        private const string RunVanillaUnrealServerScript =
+            @"@echo off
+
+:: Change configs to non-Spatial networking
+
+start {0}Server.exe -log -OverrideSpatialNetworking=false";
+
+        private const string RunVanillaUnrealClientScript =
+            @"@echo off
+
+:: Change configs to non-Spatial networking
+
+start _{0}.exe 127.0.0.1 -log -OverrideSpatialNetworking=false";
+
+        private const string LauncherConfigWithNoLogging =
+            @"{{
+  ""launcherCommand"": ""_Scavenger.exe"",
+  ""launcherArguments"": [
+    ""Cascade"",
+    ""+projectName"", ""${{IMPROBABLE_PROJECT_NAME}}"",
+    ""+deploymentName"", ""${{IMPROBABLE_DEPLOYMENT_NAME}}"",
+    ""+loginToken"", ""${{IMPROBABLE_LOGIN_TOKEN}}"",
+    ""+playerIdentityToken"", ""${{IMPROBABLE_PLAYER_IDENTITY_TOKEN}}"",
+    ""+locatorHost"", ""${{IMPROBABLE_LOCATOR_HOSTNAME}}"",
+    ""+useExternalIpForBridge"", ""true"",
+    ""-OverrideSpatialNetworking=true"",
+    ""-NoLogToSpatial""
+  ]
+}}";
 
         public static void Main(string[] args)
         {
@@ -217,11 +252,20 @@ gosu $NEW_USER ""${SCRIPT}"" ""$@"" >> ""/improbable/logs/${WORKER_ID}.log"" 2>&
                     Console.WriteLine("Could not find the executable to rename.");
                 }
 
+                File.WriteAllText(Path.Combine(windowsNoEditorPath, "_RunLocalVanillaUnrealClient.bat"), string.Format(RunVanillaUnrealClientScript, baseGameName).Replace("\r\n", "\n"), new UTF8Encoding(false));
+                File.WriteAllText(Path.Combine(windowsNoEditorPath, "improbable_client_launch_config.json"), string.Format(LauncherConfigWithNoLogging).Replace("\r\n", "\n"), new UTF8Encoding(false));
+                
+                var DestArchive = Quote(Path.Combine(outputDir, "LauncherClient@Windows.zip"));
+                if (File.Exists(DestArchive))
+                {
+                        File.Delete(DestArchive);
+                }                
+
                 Common.RunRedirected(runUATBat, new[]
                 {
                     "ZipUtils",
                     "-add=" + Quote(windowsNoEditorPath),
-                    "-archive=" + Quote(Path.Combine(outputDir, "UnrealClient@Windows.zip")),
+                    "-archive=" + DestArchive,
                 });
             }
             else if (gameName == baseGameName + "FakeClient")
@@ -325,6 +369,12 @@ gosu $NEW_USER ""${SCRIPT}"" ""$@"" >> ""/improbable/logs/${WORKER_ID}.log"" 2>&
                     // Write out the wrapper shell script to work around issues between UnrealEngine and our cloud Linux environments.
                     // Also ensure script uses Linux line endings
                     File.WriteAllText(Path.Combine(serverPath, "StartWorker.sh"), string.Format(UnrealWorkerShellScript, baseGameName).Replace("\r\n", "\n"), new UTF8Encoding(false));
+                }
+
+                // Create a script for setting configs to native Unreal networking and launching a server.
+                if (platform == "Win64")
+                {
+                    File.WriteAllText(Path.Combine(serverPath, "RunLocalVanillaUnrealServer.bat"), string.Format(RunVanillaUnrealServerScript, baseGameName).Replace("\r\n", "\n"), new UTF8Encoding(false));
                 }
 
                 Common.RunRedirected(runUATBat, new[]
