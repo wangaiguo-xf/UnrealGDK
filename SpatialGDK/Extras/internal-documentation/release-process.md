@@ -19,6 +19,7 @@ This document outlines the process for releasing a version of the GDK for Unreal
 1. `git checkout -b x.y.z-rc` in order to create release candidate branch.
 1. Open `CHANGELOG.md`, which is in the root of the repository, and put the release version and planned date of release in a `##` block. Move the `Unreleased` section above this.
     - Look at the previous release versions in the changelog to see how this should be done.
+1. Commit your changes to `CHANGELOG.md`.
 1. `git push --set-upstream origin x.y.z-rc` to push the branch.
 1. Announce the branch and the commit hash it uses in the #unreal-gdk-release channel.
 
@@ -140,6 +141,9 @@ call "%~dp0ProjectPaths.bat"
 
 ## Validation (UnrealGDKTestSuite)
 1. Follow these steps: https://github.com/spatialos/UnrealGDKTestSuite/blob/release/README.md. All tests must pass.
+
+## Validation (Playtest)
+1. Follow these steps: https://brevi.link/unreal-release-playtests. All tests must pass.
 
 ## Validation (Docs)
 1. Upload docs to docs-testing using Improbadoc.
