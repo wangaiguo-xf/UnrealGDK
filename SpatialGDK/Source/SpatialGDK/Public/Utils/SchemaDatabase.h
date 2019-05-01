@@ -53,6 +53,22 @@ public:
 		return SpatialConstants::INVALID_COMPONENT_ID;
 	}
 
+	/**
+	 * Get the component ID of the marker component used to indicate that
+	 * an entity represents an Unreal object of a particular type.
+	 *
+	 * If the type is not part of the schema, returns INVALID_COMPONENT_ID.
+	 */
+	uint32 GetComponentIdForClass(UClass* Class)
+	{
+		const FString ClassPath = Class->GetPathName();
+		if (const FSchemaData* SchemaData = ClassPathToSchema.Find(ClassPath))
+		{
+			return SchemaData->SchemaComponents[SCHEMA_Data];
+		}
+		return SpatialConstants::INVALID_COMPONENT_ID;
+	}
+
 	UPROPERTY(VisibleAnywhere)
 	TMap<FString, FSchemaData> ClassPathToSchema;
 

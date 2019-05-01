@@ -12,6 +12,7 @@
 #include "EngineClasses/SpatialPackageMapClient.h"
 #include "SpatialGDKSettings.h"
 #include "SpatialConstants.h"
+#include "UObjectIterator.h"
 
 DEFINE_LOG_CATEGORY(LogInterestFactory);
 
@@ -181,12 +182,50 @@ QueryConstraint InterestFactory::CreateActorInterestConstraint()
 	float DefaultCheckoutRadius = 0.0f;
 	for (const UActorInterestComponent* InterestComponent : InterestComponents)
 	{
-		check(InterestComponent->DefaultCheckoutRadius >= 0.0f); // enforced by ClampMin on UProperty
-		DefaultCheckoutRadius = FMath::Max(DefaultCheckoutRadius, InterestComponent->DefaultCheckoutRadius / 100.0f);
+		// TODO - timgibson - move logic for creating actor interest constraints to the component?
+
+		DefaultCheckoutRadius = FMath::Max(DefaultCheckoutRadius, static_cast<float>(InterestComponent->DefaultCheckoutRadius) / 100.0f);
+		check(DefaultCheckoutRadius >= 0);
+
+		for (const FActorInterestRadius& ActorInterest: InterestComponent->Interests)
+		{
+			QueryConstraint ParticularActorTypeConstraint;
+
+			float RadiusMeters = static_cast<float>(ActorInterest.InterestRadius) / 100.0f;
+			check(RadiusMeters >= 0);
+			QueryConstraint RadiusConststraint;
+			RadiusConststraint.RelativeCylinderConstraint = RelativeCylinderConstraint{ RadiusMeters };
+			ParticularActorTypeConstraint.AndConstraint.Add(RadiusConststraint);
+
+			// TODO - timgibson - will this work in all cases that we care about?
+			// See comments here about using the asset registry:
+			// http://kantandev.com/articles/finding-all-classes-blueprints-with-a-given-base
+			QueryConstraint ComponentConstraints;
+			for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
+			{
+				UClass* Class = *ClassIt;
+				if (Class->IsChildOf(ActorInterest.ActorType))
+				{
+					const uint32 ComponentId = NetDriver->ClassInfoManager->SchemaDatabase->GetComponentIdForClass(Class);
+					if (ComponentId != SpatialConstants::INVALID_COMPONENT_ID)
+					{
+						QueryConstraint ComponentTypeConstraint;
+						ComponentTypeConstraint.ComponentConstraint = ComponentId;
+						ComponentConstraints.OrConstraint.Add(ComponentTypeConstraint);
+					}
+				}
+			}
+			ParticularActorTypeConstraint.AndConstraint.Add(ComponentConstraints);
+
+			ActorInterestConstraint.OrConstraint.Add(ParticularActorTypeConstraint);
+		}
 	}
-	ActorInterestConstraint.RelativeCylinderConstraint = RelativeCylinderConstraint{ DefaultCheckoutRadius };
+	QueryConstraint DefaultRadiusConstraint;
+	DefaultRadiusConstraint.RelativeCylinderConstraint = RelativeCylinderConstraint{ DefaultCheckoutRadius };
+	ActorInterestConstraint.OrConstraint.Add(DefaultRadiusConstraint);
 
 	return ActorInterestConstraint;
+
 }
 
 QueryConstraint InterestFactory::CreateAlwaysInterestedConstraint()
