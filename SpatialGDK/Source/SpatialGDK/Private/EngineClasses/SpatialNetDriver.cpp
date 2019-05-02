@@ -1179,6 +1179,39 @@ void USpatialNetDriver::TickFlush(float DeltaTime)
 #endif // WITH_SERVER_CODE
 	}
 
+	if (!IsServer() && Sender && Sender->UnreliableServerRPCs.Num() > 0 && GetWorld())
+	{
+		auto PCObjectRef = PackageMap->GetUnrealObjectRefFromObject(GetWorld()->GetGameInstance()->GetFirstLocalPlayerController());
+		Worker_EntityId ControllerEntityId = PCObjectRef.Entity;
+
+		if (ControllerEntityId != SpatialConstants::INVALID_ENTITY_ID)
+		{
+			Worker_ComponentUpdate ComponentUpdate = {};
+
+			Worker_ComponentId ComponentId = SpatialConstants::CLIENT_RPC_ENDPOINT_COMPONENT_ID;
+			ComponentUpdate.component_id = ComponentId;
+			ComponentUpdate.schema_type = Schema_CreateComponentUpdate(ComponentId);
+			Schema_Object* EventsObject = Schema_GetComponentUpdateEvents(ComponentUpdate.schema_type);
+
+			for (auto& RPC : Sender->UnreliableServerRPCs)
+			{
+				Schema_Object* EventData = Schema_AddObject(EventsObject, SpatialConstants::UNREAL_RPC_ENDPOINT_EVENT_ID);
+
+				Schema_AddUint32(EventData, SpatialConstants::UNREAL_RPC_PAYLOAD_OFFSET_ID, RPC.Offset);
+				Schema_AddUint32(EventData, SpatialConstants::UNREAL_RPC_PAYLOAD_RPC_INDEX_ID, RPC.Index);
+				uint32 PayloadSize = RPC.Data.Num();
+				uint8* PayloadBuffer = Schema_AllocateBuffer(EventData, sizeof(char) * PayloadSize);
+				FMemory::Memcpy(PayloadBuffer, RPC.Data.GetData(), sizeof(char) * PayloadSize);
+				Schema_AddBytes(EventData, 3, PayloadBuffer, sizeof(char) * PayloadSize);
+				Schema_AddEntityId(EventData, 4, RPC.Entity);
+			}
+
+			Connection->SendComponentUpdate(ControllerEntityId, &ComponentUpdate);
+
+			Sender->UnreliableServerRPCs.Empty();
+		}
+	}
+
 	// Tick the timer manager
 	{
 		TimerManager.Tick(DeltaTime);

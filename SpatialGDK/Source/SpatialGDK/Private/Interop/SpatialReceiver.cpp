@@ -929,6 +929,12 @@ void USpatialReceiver::HandleUnreliableRPC(Worker_ComponentUpdateOp& Op)
 
 		FUnrealObjectRef ObjectRef(EntityId, Offset);
 
+		if (Op.update.component_id == SpatialConstants::CLIENT_RPC_ENDPOINT_COMPONENT_ID)
+		{
+			checkSlow(NetDriver->IsServer());
+			ObjectRef.Entity = Schema_GetEntityId(EventData, 4);
+		}
+
 		UObject* TargetObject = PackageMap->GetObjectFromUnrealObjectRef(ObjectRef).Get();
 
 		if (!TargetObject)

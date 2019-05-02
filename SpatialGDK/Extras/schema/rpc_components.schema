@@ -7,12 +7,19 @@ type UnrealRPCPayload {
     bytes rpc_payload = 3;
 }
 
+type UnrealServerRPCPayload {
+    uint32 offset = 1;
+    uint32 rpc_index = 2;
+    bytes rpc_payload = 3;
+    EntityId entity = 4;
+}
+
 type Void {
 }
 
 component UnrealClientRPCEndpoint {
     id = 9990;
-    event UnrealRPCPayload unreliable_client_to_server_rpc;
+    event UnrealServerRPCPayload unreliable_client_to_server_rpc;
     command Void reliable_server_to_client_rpc(UnrealRPCPayload);
 }
 

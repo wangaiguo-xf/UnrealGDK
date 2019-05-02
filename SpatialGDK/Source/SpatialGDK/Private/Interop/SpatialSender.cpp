@@ -492,7 +492,18 @@ void USpatialSender::SendRPC(TSharedRef<FPendingRPCParams> Params)
 		}
 		else if (RPCInfo->Type == SCHEMA_ServerUnreliableRPC)
 		{
+			checkSlow(!NetDriver->IsServer());
 			ComponentId = SpatialConstants::CLIENT_RPC_ENDPOINT_COMPONENT_ID;
+			QueueUnreliableServerRPC(TargetObject, Params->Function, Params->Parameters.GetData(), ComponentId, RPCInfo->Index, EntityId, UnresolvedObject);
+			if (UnresolvedObject)
+			{
+				//  RPC
+				//   |
+				//   |
+				//   v
+				// Floor
+			}
+			return;
 		}
 		else
 		{
@@ -742,8 +753,48 @@ Worker_ComponentUpdate USpatialSender::CreateUnreliableRPCUpdate(UObject* Target
 	}
 
 	WriteRpcPayload(EventData, TargetObjectRef.Offset, EventIndex, PayloadWriter);
+	if (ComponentId == SpatialConstants::CLIENT_RPC_ENDPOINT_COMPONENT_ID)
+	{
+		Schema_AddEntityId(EventData, 4, OutEntityId);
+	}
 
 	return ComponentUpdate;
+}
+
+void USpatialSender::QueueUnreliableServerRPC(UObject* TargetObject, UFunction* Function, void* Parameters, Worker_ComponentId ComponentId, Schema_FieldId EventIndex, Worker_EntityId& OutEntityId, const UObject*& OutUnresolvedObject)
+{
+	FUnrealObjectRef TargetObjectRef(PackageMap->GetUnrealObjectRefFromNetGUID(PackageMap->GetNetGUIDFromObject(TargetObject)));
+	if (TargetObjectRef == FUnrealObjectRef::UNRESOLVED_OBJECT_REF)
+	{
+		OutUnresolvedObject = TargetObject;
+		return;
+	}
+
+	OutEntityId = TargetObjectRef.Entity;
+
+	TSet<TWeakObjectPtr<const UObject>> UnresolvedObjects;
+	FSpatialNetBitWriter PayloadWriter(PackageMap, UnresolvedObjects);
+
+	TSharedPtr<FRepLayout> RepLayout = NetDriver->GetFunctionRepLayout(Function);
+	RepLayout_SendPropertiesForRPC(*RepLayout, PayloadWriter, Parameters);
+
+	for (TWeakObjectPtr<const UObject> Object : UnresolvedObjects)
+	{
+		if (Object.IsValid())
+		{
+			// Take the first unresolved object
+			OutUnresolvedObject = Object.Get();
+			return;
+		}
+	}
+
+	PendingUnreliableServerRPC RPC;
+	RPC.Offset = TargetObjectRef.Offset;
+	RPC.Index = EventIndex;
+	RPC.Data.SetNumUninitialized(PayloadWriter.GetNumBytes());
+	FMemory::Memcpy(RPC.Data.GetData(), PayloadWriter.GetData(), PayloadWriter.GetNumBytes());
+	RPC.Entity = OutEntityId;
+	UnreliableServerRPCs.Add(RPC);
 }
 
 void USpatialSender::WriteRpcPayload(Schema_Object* Object, uint32 Offset, Schema_FieldId Index, FSpatialNetBitWriter& PayloadWriter)
