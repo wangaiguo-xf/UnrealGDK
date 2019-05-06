@@ -57,72 +57,75 @@ Interest InterestFactory::CreateActorInterest()
 {
 	Interest NewInterest;
 
-	QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
-
-	if (!SystemDefinedConstraints.IsValid())
-	{
-		return NewInterest;
-	}
-
-	Query NewQuery;
-	NewQuery.Constraint = SystemDefinedConstraints;
-	// TODO: Make result type handle components certain workers shouldn't see
-	// e.g. Handover, OwnerOnly, etc.
-	NewQuery.FullSnapshotResult = true;
-
-	ComponentInterest NewComponentInterest;
-	NewComponentInterest.Queries.Add(NewQuery);
-
 	// Server Interest
-	NewInterest.ComponentInterestMap.Add(SpatialConstants::POSITION_COMPONENT_ID, NewComponentInterest);
+	{
+		QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
+		if (SystemDefinedConstraints.IsValid())
+		{
+			// TODO: Make result type handle components certain workers shouldn't see
+			// e.g. Handover, OwnerOnly, etc.
+
+			Query ServerQuery;
+			ServerQuery.Constraint = SystemDefinedConstraints;
+			ServerQuery.FullSnapshotResult = true;
+
+			ComponentInterest ServerQueries;
+			ServerQueries.Queries.Add(ServerQuery);
+
+			NewInterest.ComponentInterestMap.Add(SpatialConstants::POSITION_COMPONENT_ID, ServerQueries);
+		}
+	}
 
 	return NewInterest;
 }
 
 Interest InterestFactory::CreatePlayerOwnedActorInterest()
 {
-	QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
-
-	// Servers only need the defined constraints
-	Query ServerQuery;
-	ServerQuery.Constraint = SystemDefinedConstraints;
-	ServerQuery.FullSnapshotResult = true;
-
-	ComponentInterest ServerComponentInterest;
-	ServerComponentInterest.Queries.Add(ServerQuery);
-
-	// Clients should only check out entities that are in loaded sublevels
-	QueryConstraint LevelConstraints = CreateLevelConstraints();
-
-	QueryConstraint ClientConstraint;
-
-	if (SystemDefinedConstraints.IsValid())
-	{
-		ClientConstraint.AndConstraint.Add(SystemDefinedConstraints);
-	}
-
-	if (LevelConstraints.IsValid())
-	{
-		ClientConstraint.AndConstraint.Add(LevelConstraints);
-	}
-
-	Query ClientQuery;
-	ClientQuery.Constraint = ClientConstraint;
-	ClientQuery.FullSnapshotResult = true;
-
-	ComponentInterest ClientComponentInterest;
-	ClientComponentInterest.Queries.Add(ClientQuery);
-
 	Interest NewInterest;
+
 	// Server Interest
-	if (SystemDefinedConstraints.IsValid())
 	{
-		NewInterest.ComponentInterestMap.Add(SpatialConstants::POSITION_COMPONENT_ID, ServerComponentInterest);
+		QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
+		if (SystemDefinedConstraints.IsValid())
+		{
+			Query ServerQuery;
+			ServerQuery.Constraint = SystemDefinedConstraints;
+			ServerQuery.FullSnapshotResult = true;
+
+			ComponentInterest ServerQueries;
+			ServerQueries.Queries.Add(ServerQuery);
+
+			NewInterest.ComponentInterestMap.Add(SpatialConstants::POSITION_COMPONENT_ID, ServerQueries);
+		}
 	}
+
 	// Client Interest
-	if (ClientConstraint.IsValid())
 	{
-		NewInterest.ComponentInterestMap.Add(SpatialConstants::CLIENT_RPC_ENDPOINT_COMPONENT_ID, ClientComponentInterest);
+		QueryConstraint ClientConstraint;
+
+		QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
+		if (SystemDefinedConstraints.IsValid())
+		{
+			ClientConstraint.AndConstraint.Add(SystemDefinedConstraints);
+		}
+
+		QueryConstraint LevelConstraints = CreateLevelConstraints();
+		if (LevelConstraints.IsValid())
+		{
+			ClientConstraint.AndConstraint.Add(LevelConstraints);
+		}
+
+		Query ClientQuery;
+		ClientQuery.Constraint = ClientConstraint;
+		ClientQuery.FullSnapshotResult = true;
+
+		ComponentInterest ClientQueries;
+		ClientQueries.Queries.Add(ClientQuery);
+
+		if (ClientConstraint.IsValid())
+		{
+			NewInterest.ComponentInterestMap.Add(SpatialConstants::CLIENT_RPC_ENDPOINT_COMPONENT_ID, ClientQueries);
+		}
 	}
 
 	return NewInterest;
