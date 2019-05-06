@@ -23,7 +23,7 @@ public:
 	//float UpdateFrequency;
 };
 
-UCLASS(ClassGroup=(SpatialOS))
+UCLASS(ClassGroup = (SpatialOS), meta = (BlueprintSpawnableComponent))
 class SPATIALGDK_API UActorInterestComponent : public UActorComponent
 {
 	GENERATED_BODY()
