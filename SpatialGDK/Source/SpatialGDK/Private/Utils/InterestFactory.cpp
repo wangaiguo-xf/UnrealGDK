@@ -57,15 +57,15 @@ Interest InterestFactory::CreateActorInterest()
 {
 	Interest NewInterest;
 
-	QueryConstraint DefinedConstraints = CreateDefinedConstraints();
+	QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
 
-	if (!DefinedConstraints.IsValid())
+	if (!SystemDefinedConstraints.IsValid())
 	{
 		return NewInterest;
 	}
 
 	Query NewQuery;
-	NewQuery.Constraint = DefinedConstraints;
+	NewQuery.Constraint = SystemDefinedConstraints;
 	// TODO: Make result type handle components certain workers shouldn't see
 	// e.g. Handover, OwnerOnly, etc.
 	NewQuery.FullSnapshotResult = true;
@@ -81,11 +81,11 @@ Interest InterestFactory::CreateActorInterest()
 
 Interest InterestFactory::CreatePlayerOwnedActorInterest()
 {
-	QueryConstraint DefinedConstraints = CreateDefinedConstraints();
+	QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
 
 	// Servers only need the defined constraints
 	Query ServerQuery;
-	ServerQuery.Constraint = DefinedConstraints;
+	ServerQuery.Constraint = SystemDefinedConstraints;
 	ServerQuery.FullSnapshotResult = true;
 
 	ComponentInterest ServerComponentInterest;
@@ -96,9 +96,9 @@ Interest InterestFactory::CreatePlayerOwnedActorInterest()
 
 	QueryConstraint ClientConstraint;
 
-	if (DefinedConstraints.IsValid())
+	if (SystemDefinedConstraints.IsValid())
 	{
-		ClientConstraint.AndConstraint.Add(DefinedConstraints);
+		ClientConstraint.AndConstraint.Add(SystemDefinedConstraints);
 	}
 
 	if (LevelConstraints.IsValid())
@@ -115,7 +115,7 @@ Interest InterestFactory::CreatePlayerOwnedActorInterest()
 
 	Interest NewInterest;
 	// Server Interest
-	if (DefinedConstraints.IsValid())
+	if (SystemDefinedConstraints.IsValid())
 	{
 		NewInterest.ComponentInterestMap.Add(SpatialConstants::POSITION_COMPONENT_ID, ServerComponentInterest);
 	}
@@ -126,26 +126,6 @@ Interest InterestFactory::CreatePlayerOwnedActorInterest()
 	}
 
 	return NewInterest;
-}
-
-QueryConstraint InterestFactory::CreateDefinedConstraints()
-{
-	QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
-	QueryConstraint UserDefinedConstraints = CreateUserDefinedConstraints();
-
-	QueryConstraint DefinedConstraints;
-
-	if (SystemDefinedConstraints.IsValid())
-	{
-		DefinedConstraints.OrConstraint.Add(SystemDefinedConstraints);
-	}
-
-	if (UserDefinedConstraints.IsValid())
-	{
-		DefinedConstraints.OrConstraint.Add(UserDefinedConstraints);
-	}
-
-	return DefinedConstraints;
 }
 
 QueryConstraint InterestFactory::CreateSystemDefinedConstraints()
@@ -166,11 +146,6 @@ QueryConstraint InterestFactory::CreateSystemDefinedConstraints()
 	}
 
 	return SystemDefinedConstraints;
-}
-
-QueryConstraint InterestFactory::CreateUserDefinedConstraints()
-{
-	return QueryConstraint{};
 }
 
 QueryConstraint InterestFactory::CreateActorInterestConstraint()
