@@ -43,67 +43,32 @@ Interest InterestFactory::CreateInterest()
 		return Interest{};
 	}
 
-	if (Actor->GetNetConnection() != nullptr)
-	{
-		return CreatePlayerOwnedActorInterest();
-	}
-	else
-	{
-		return CreateActorInterest();
-	}
-}
-
-Interest InterestFactory::CreateActorInterest()
-{
 	Interest NewInterest;
 
-	// Server Interest
-	{
-		QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
-		if (SystemDefinedConstraints.IsValid())
-		{
-			// TODO: Make result type handle components certain workers shouldn't see
-			// e.g. Handover, OwnerOnly, etc.
-
-			Query ServerQuery;
-			ServerQuery.Constraint = SystemDefinedConstraints;
-			ServerQuery.FullSnapshotResult = true;
-
-			ComponentInterest ServerQueries;
-			ServerQueries.Queries.Add(ServerQuery);
-
-			NewInterest.ComponentInterestMap.Add(SpatialConstants::POSITION_COMPONENT_ID, ServerQueries);
-		}
-	}
-
-	return NewInterest;
-}
-
-Interest InterestFactory::CreatePlayerOwnedActorInterest()
-{
-	Interest NewInterest;
+	// System constraints are relevant for client and server workers.
+	QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
 
 	// Server Interest
+	if (SystemDefinedConstraints.IsValid())
 	{
-		QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
-		if (SystemDefinedConstraints.IsValid())
-		{
-			Query ServerQuery;
-			ServerQuery.Constraint = SystemDefinedConstraints;
-			ServerQuery.FullSnapshotResult = true;
+		// TODO: Make result type handle components certain workers shouldn't see
+		// e.g. Handover, OwnerOnly, etc.
 
-			ComponentInterest ServerQueries;
-			ServerQueries.Queries.Add(ServerQuery);
+		Query ServerQuery;
+		ServerQuery.Constraint = SystemDefinedConstraints;
+		ServerQuery.FullSnapshotResult = true;
 
-			NewInterest.ComponentInterestMap.Add(SpatialConstants::POSITION_COMPONENT_ID, ServerQueries);
-		}
+		ComponentInterest ServerQueries;
+		ServerQueries.Queries.Add(ServerQuery);
+
+		NewInterest.ComponentInterestMap.Add(SpatialConstants::POSITION_COMPONENT_ID, ServerQueries);
 	}
 
 	// Client Interest
+	if (Actor->GetNetConnection() != nullptr)
 	{
 		QueryConstraint ClientConstraint;
 
-		QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
 		if (SystemDefinedConstraints.IsValid())
 		{
 			ClientConstraint.AndConstraint.Add(SystemDefinedConstraints);
@@ -114,6 +79,9 @@ Interest InterestFactory::CreatePlayerOwnedActorInterest()
 		{
 			ClientConstraint.AndConstraint.Add(LevelConstraints);
 		}
+
+		// TODO: Make result type handle components certain workers shouldn't see
+		// e.g. Handover, OwnerOnly, etc.
 
 		Query ClientQuery;
 		ClientQuery.Constraint = ClientConstraint;

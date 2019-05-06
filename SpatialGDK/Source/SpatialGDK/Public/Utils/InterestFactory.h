@@ -27,11 +27,6 @@ public:
 private:
 	Interest CreateInterest();
 
-	// Only uses Defined Constraint
-	Interest CreateActorInterest();
-	// Defined Constraint AND Level Constraint
-	Interest CreatePlayerOwnedActorInterest();
-
 private:
 	// Checkout Constraint OR AlwaysInterested Constraint
 	QueryConstraint CreateSystemDefinedConstraints();
