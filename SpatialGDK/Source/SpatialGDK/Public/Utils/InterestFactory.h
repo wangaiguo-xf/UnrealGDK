@@ -35,6 +35,8 @@ private:
 	QueryConstraint CreateActorInterestConstraint();
 	QueryConstraint CreateAlwaysInterestedConstraint();
 
+	void CreateActorQueries(TArray<Query> &InOutQueries);
+
 	// Only checkout entities that are in loaded sublevels
 	QueryConstraint CreateLevelConstraints();
 

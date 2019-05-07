@@ -59,9 +59,9 @@ public:
 	 *
 	 * If the type is not part of the schema, returns INVALID_COMPONENT_ID.
 	 */
-	uint32 GetComponentIdForClass(UClass* Class)
+	uint32 GetComponentIdForClass(const UClass& Class) const
 	{
-		const FString ClassPath = Class->GetPathName();
+		const FString ClassPath = Class.GetPathName();
 		if (const FSchemaData* SchemaData = ClassPathToSchema.Find(ClassPath))
 		{
 			return SchemaData->SchemaComponents[SCHEMA_Data];

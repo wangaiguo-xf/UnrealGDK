@@ -7,6 +7,7 @@
 #include "GameFramework/PlayerController.h"
 
 #include "Components/ActorInterestComponent.h"
+#include "Components/ActorInterestQueryComponent.h"
 #include "EngineClasses/SpatialNetConnection.h"
 #include "EngineClasses/SpatialNetDriver.h"
 #include "EngineClasses/SpatialPackageMapClient.h"
@@ -48,20 +49,31 @@ Interest InterestFactory::CreateInterest()
 	// System constraints are relevant for client and server workers.
 	QueryConstraint SystemDefinedConstraints = CreateSystemDefinedConstraints();
 
+	// TODO - timgibson - it might make more sense to attach these to the component
+	// representing this.Actor's type instead of POSTITION and CLIENT_RPC
+	TArray<Query> ActorQueries;
+	CreateActorQueries(ActorQueries);
+
 	// Server Interest
-	if (SystemDefinedConstraints.IsValid())
 	{
+		ComponentInterest ServerQueries;
+
 		// TODO: Make result type handle components certain workers shouldn't see
 		// e.g. Handover, OwnerOnly, etc.
-
 		Query ServerQuery;
 		ServerQuery.Constraint = SystemDefinedConstraints;
 		ServerQuery.FullSnapshotResult = true;
 
-		ComponentInterest ServerQueries;
-		ServerQueries.Queries.Add(ServerQuery);
+		if (ServerQuery.Constraint.IsValid())
+		{
+			ServerQueries.Queries.Add(ServerQuery);
+		}
+		ServerQueries.Queries.Append(ActorQueries);
 
-		NewInterest.ComponentInterestMap.Add(SpatialConstants::POSITION_COMPONENT_ID, ServerQueries);
+		if (ServerQueries.Queries.Num() > 0)
+		{
+			NewInterest.ComponentInterestMap.Add(SpatialConstants::POSITION_COMPONENT_ID, ServerQueries);
+		}
 	}
 
 	// Client Interest
@@ -88,9 +100,13 @@ Interest InterestFactory::CreateInterest()
 		ClientQuery.FullSnapshotResult = true;
 
 		ComponentInterest ClientQueries;
-		ClientQueries.Queries.Add(ClientQuery);
+		if (ClientQuery.Constraint.IsValid())
+		{
+			ClientQueries.Queries.Add(ClientQuery);
+		}
+		ClientQueries.Queries.Append(ActorQueries);
 
-		if (ClientConstraint.IsValid())
+		if (ClientQueries.Queries.Num() > 0)
 		{
 			NewInterest.ComponentInterestMap.Add(SpatialConstants::CLIENT_RPC_ENDPOINT_COMPONENT_ID, ClientQueries);
 		}
@@ -119,6 +135,21 @@ QueryConstraint InterestFactory::CreateSystemDefinedConstraints()
 	return SystemDefinedConstraints;
 }
 
+void InterestFactory::CreateActorQueries(TArray<Query> &InOutQueries)
+{
+	check(Actor);
+	check(NetDriver && NetDriver->ClassInfoManager && NetDriver->ClassInfoManager->SchemaDatabase);
+
+	TArray<UActorInterestQueryComponent *> InterestComponents;
+	Actor->GetComponents<UActorInterestQueryComponent>(InterestComponents);
+	for (const UActorInterestQueryComponent* InterestComponent : InterestComponents)
+	{
+		Query ActorInterestQuery = InterestComponent->CreateQuery(*NetDriver->ClassInfoManager->SchemaDatabase);
+		InOutQueries.Add(ActorInterestQuery);
+	}
+}
+
+// TODO - timgibson - remove this function
 QueryConstraint InterestFactory::CreateActorInterestConstraint()
 {
 	QueryConstraint ActorInterestConstraint;
@@ -150,9 +181,10 @@ QueryConstraint InterestFactory::CreateActorInterestConstraint()
 			for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
 			{
 				UClass* Class = *ClassIt;
+				check(Class);
 				if (Class->IsChildOf(ActorInterest.ActorType))
 				{
-					const uint32 ComponentId = NetDriver->ClassInfoManager->SchemaDatabase->GetComponentIdForClass(Class);
+					const uint32 ComponentId = NetDriver->ClassInfoManager->SchemaDatabase->GetComponentIdForClass(*Class);
 					if (ComponentId != SpatialConstants::INVALID_COMPONENT_ID)
 					{
 						QueryConstraint ComponentTypeConstraint;
