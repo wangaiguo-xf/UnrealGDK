@@ -6,7 +6,6 @@
 #include "Engine/Classes/GameFramework/Actor.h"
 #include "GameFramework/PlayerController.h"
 
-#include "Components/ActorInterestComponent.h"
 #include "Components/ActorInterestQueryComponent.h"
 #include "EngineClasses/SpatialNetConnection.h"
 #include "EngineClasses/SpatialNetDriver.h"
@@ -117,14 +116,14 @@ Interest InterestFactory::CreateInterest()
 
 QueryConstraint InterestFactory::CreateSystemDefinedConstraints()
 {
-	QueryConstraint ActorInterestConstraint = CreateActorInterestConstraint();
+	QueryConstraint CheckoutRadiusConstraint = CreateCheckoutRadiusConstraint();
 	QueryConstraint AlwaysInterestedConstraint = CreateAlwaysInterestedConstraint();
 
 	QueryConstraint SystemDefinedConstraints;
 
-	if (ActorInterestConstraint.IsValid())
+	if (CheckoutRadiusConstraint.IsValid())
 	{
-		SystemDefinedConstraints.OrConstraint.Add(ActorInterestConstraint);
+		SystemDefinedConstraints.OrConstraint.Add(CheckoutRadiusConstraint);
 	}
 
 	if (AlwaysInterestedConstraint.IsValid())
@@ -149,61 +148,15 @@ void InterestFactory::CreateActorQueries(TArray<Query> &InOutQueries)
 	}
 }
 
-// TODO - timgibson - remove this function
-QueryConstraint InterestFactory::CreateActorInterestConstraint()
+QueryConstraint InterestFactory::CreateCheckoutRadiusConstraint()
 {
-	QueryConstraint ActorInterestConstraint;
+	QueryConstraint CheckoutRadiusConstraint;
 
-	TArray<UActorInterestComponent*> InterestComponents;
-	Actor->GetComponents<UActorInterestComponent>(InterestComponents);
-	float DefaultCheckoutRadius = 0.0f;
-	for (const UActorInterestComponent* InterestComponent : InterestComponents)
-	{
-		// TODO - timgibson - move logic for creating actor interest constraints to the component?
+	// TODO - timgibson - Replace actor-based default checkout radius with a setting?
+	float CheckoutRadius = Actor->CheckoutRadius / 100.0f; // Convert to meters
+	CheckoutRadiusConstraint.RelativeCylinderConstraint = RelativeCylinderConstraint{ CheckoutRadius };
 
-		DefaultCheckoutRadius = FMath::Max(DefaultCheckoutRadius, static_cast<float>(InterestComponent->DefaultCheckoutRadius) / 100.0f);
-		check(DefaultCheckoutRadius >= 0);
-
-		for (const FActorInterestRadius& ActorInterest: InterestComponent->Interests)
-		{
-			QueryConstraint ParticularActorTypeConstraint;
-
-			float RadiusMeters = static_cast<float>(ActorInterest.InterestRadius) / 100.0f;
-			check(RadiusMeters >= 0);
-			QueryConstraint RadiusConststraint;
-			RadiusConststraint.RelativeCylinderConstraint = RelativeCylinderConstraint{ RadiusMeters };
-			ParticularActorTypeConstraint.AndConstraint.Add(RadiusConststraint);
-
-			// TODO - timgibson - will this work in all cases that we care about?
-			// See comments here about using the asset registry:
-			// http://kantandev.com/articles/finding-all-classes-blueprints-with-a-given-base
-			QueryConstraint ComponentConstraints;
-			for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
-			{
-				UClass* Class = *ClassIt;
-				check(Class);
-				if (Class->IsChildOf(ActorInterest.ActorType))
-				{
-					const uint32 ComponentId = NetDriver->ClassInfoManager->SchemaDatabase->GetComponentIdForClass(*Class);
-					if (ComponentId != SpatialConstants::INVALID_COMPONENT_ID)
-					{
-						QueryConstraint ComponentTypeConstraint;
-						ComponentTypeConstraint.ComponentConstraint = ComponentId;
-						ComponentConstraints.OrConstraint.Add(ComponentTypeConstraint);
-					}
-				}
-			}
-			ParticularActorTypeConstraint.AndConstraint.Add(ComponentConstraints);
-
-			ActorInterestConstraint.OrConstraint.Add(ParticularActorTypeConstraint);
-		}
-	}
-	QueryConstraint DefaultRadiusConstraint;
-	DefaultRadiusConstraint.RelativeCylinderConstraint = RelativeCylinderConstraint{ DefaultCheckoutRadius };
-	ActorInterestConstraint.OrConstraint.Add(DefaultRadiusConstraint);
-
-	return ActorInterestConstraint;
-
+	return CheckoutRadiusConstraint;
 }
 
 QueryConstraint InterestFactory::CreateAlwaysInterestedConstraint()

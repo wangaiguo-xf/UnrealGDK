@@ -32,7 +32,7 @@ private:
 	QueryConstraint CreateSystemDefinedConstraints();
 
 	// System Defined Constraints
-	QueryConstraint CreateActorInterestConstraint();
+	QueryConstraint CreateCheckoutRadiusConstraint();
 	QueryConstraint CreateAlwaysInterestedConstraint();
 
 	void CreateActorQueries(TArray<Query> &InOutQueries);
