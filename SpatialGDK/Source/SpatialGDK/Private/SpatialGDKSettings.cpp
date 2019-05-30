@@ -19,13 +19,16 @@ USpatialGDKSettings::USpatialGDKSettings(const FObjectInitializer& ObjectInitial
 	, HeartbeatTimeoutSeconds(10.0f)
 	, ActorReplicationRateLimit(0)
 	, EntityCreationRateLimit(0)
-	, OpsUpdateRate(30.0f)
+	, OpsUpdateRate(1000.0f)
+	, bEnableHandover(true)
 	, bUsingQBI(true)
 	, bUsingOffloading(false)
 	, PositionUpdateFrequency(1.0f)
 	, PositionDistanceThreshold(100.0f) // 1m (100cm)
 	, bEnableMetrics(true)
 	, MetricsReportRate(2.0f)
+	, bUseFrameTimeAsLoad(false)
+	, bCheckRPCOrder(false)
 {
 }
 
