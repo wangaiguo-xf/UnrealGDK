@@ -154,6 +154,8 @@ public:
 	// Per actor, maps from RPC type to the reliable RPC index used to detect if reliable RPCs go out of order.
 	TMap<TWeakObjectPtr<AActor>, FRPCTypeToReliableRPCIdMap> ReliableRPCIdMap;
 
+	TArray<UExternalWorkerInteropTemplate*> ExternalWorkerInteropComponentClasses;
+
 	void DelayedSendDeleteEntityRequest(Worker_EntityId EntityId, float Delay);
 
 private:

@@ -128,6 +128,8 @@ void USpatialDispatcher::ProcessExternalSchemaOp(Worker_Op* Op)
 {
 	Worker_ComponentId ComponentId = GetComponentId(Op);
 	check(ComponentId != SpatialConstants::INVALID_COMPONENT_ID);
+	Worker_ComponentId EntityId = GetEntityId(Op);
+	check(ComponentId != SpatialConstants::INVALID_ENTITY_ID);
 
 	switch (Op->op_type)
 	{
@@ -139,13 +141,34 @@ void USpatialDispatcher::ProcessExternalSchemaOp(Worker_Op* Op)
 	case WORKER_OP_TYPE_COMPONENT_UPDATE:
 	case WORKER_OP_TYPE_COMMAND_REQUEST:
 	case WORKER_OP_TYPE_COMMAND_RESPONSE:
-		RunCallbacks(ComponentId, Op);
+		RunCallbacks(EntityId, ComponentId, Op);
 		break;
 	default:
 		// This should never happen providing the GetComponentId function has
 		// the same explicit cases as the switch in this method
 		checkNoEntry();
 		return;
+	}
+}
+
+Worker_EntityId USpatialDispatcher::GetEntityId(Worker_Op* Op) const
+{
+	switch (Op->op_type)
+	{
+	case WORKER_OP_TYPE_ADD_COMPONENT:
+		return Op->add_component.entity_id;
+	case WORKER_OP_TYPE_REMOVE_COMPONENT:
+		return Op->remove_component.entity_id;
+	case WORKER_OP_TYPE_COMPONENT_UPDATE:
+		return Op->component_update.entity_id;
+	case WORKER_OP_TYPE_AUTHORITY_CHANGE:
+		return Op->authority_change.entity_id;
+	case WORKER_OP_TYPE_COMMAND_REQUEST:
+		return Op->command_request.entity_id;
+	case WORKER_OP_TYPE_COMMAND_RESPONSE:
+		return Op->command_response.entity_id;
+	default:
+		return SpatialConstants::INVALID_ENTITY_ID;
 	}
 }
 
@@ -170,58 +193,58 @@ Worker_ComponentId USpatialDispatcher::GetComponentId(Worker_Op* Op) const
 	}
 }
 
-USpatialDispatcher::FCallbackId USpatialDispatcher::OnAddComponent(Worker_ComponentId ComponentId, const TFunction<void(const Worker_AddComponentOp&)>& Callback)
+USpatialDispatcher::FCallbackId USpatialDispatcher::OnAddComponent(Worker_EntityId EntityId, Worker_ComponentId ComponentId, const TFunction<void(const Worker_AddComponentOp&)>& Callback)
 {
-	return AddGenericOpCallback(ComponentId, WORKER_OP_TYPE_ADD_COMPONENT, [Callback](const Worker_Op* Op)
+	return AddGenericOpCallback(EntityId, ComponentId, WORKER_OP_TYPE_ADD_COMPONENT, [Callback](const Worker_Op* Op)
 	{
 		Callback(Op->add_component);
 	});
 }
 
-USpatialDispatcher::FCallbackId USpatialDispatcher::OnRemoveComponent(Worker_ComponentId ComponentId, const TFunction<void(const Worker_RemoveComponentOp&)>& Callback)
+USpatialDispatcher::FCallbackId USpatialDispatcher::OnRemoveComponent(Worker_EntityId EntityId, Worker_ComponentId ComponentId, const TFunction<void(const Worker_RemoveComponentOp&)>& Callback)
 {
-	return AddGenericOpCallback(ComponentId, WORKER_OP_TYPE_REMOVE_COMPONENT, [Callback](const Worker_Op* Op)
+	return AddGenericOpCallback(EntityId, ComponentId, WORKER_OP_TYPE_REMOVE_COMPONENT, [Callback](const Worker_Op* Op)
 	{
 		Callback(Op->remove_component);
 	});
 }
 
-USpatialDispatcher::FCallbackId USpatialDispatcher::OnAuthorityChange(Worker_ComponentId ComponentId, const TFunction<void(const Worker_AuthorityChangeOp&)>& Callback)
+USpatialDispatcher::FCallbackId USpatialDispatcher::OnAuthorityChange(Worker_EntityId EntityId, Worker_ComponentId ComponentId, const TFunction<void(const Worker_AuthorityChangeOp&)>& Callback)
 {
-	return AddGenericOpCallback(ComponentId, WORKER_OP_TYPE_AUTHORITY_CHANGE, [Callback](const Worker_Op* Op)
+	return AddGenericOpCallback(EntityId, ComponentId, WORKER_OP_TYPE_AUTHORITY_CHANGE, [Callback](const Worker_Op* Op)
 	{
 		Callback(Op->authority_change);
 	});
 }
-USpatialDispatcher::FCallbackId USpatialDispatcher::OnComponentUpdate(Worker_ComponentId ComponentId, const TFunction<void(const Worker_ComponentUpdateOp&)>& Callback)
+USpatialDispatcher::FCallbackId USpatialDispatcher::OnComponentUpdate(Worker_EntityId EntityId, Worker_ComponentId ComponentId, const TFunction<void(const Worker_ComponentUpdateOp&)>& Callback)
 {
-	return AddGenericOpCallback(ComponentId, WORKER_OP_TYPE_COMPONENT_UPDATE, [Callback](const Worker_Op* Op)
+	return AddGenericOpCallback(EntityId, ComponentId, WORKER_OP_TYPE_COMPONENT_UPDATE, [Callback](const Worker_Op* Op)
 	{
 		Callback(Op->component_update);
 	});
 }
 
-USpatialDispatcher::FCallbackId USpatialDispatcher::OnCommandRequest(Worker_ComponentId ComponentId, const TFunction<void(const Worker_CommandRequestOp&)>& Callback)
+USpatialDispatcher::FCallbackId USpatialDispatcher::OnCommandRequest(Worker_EntityId EntityId, Worker_ComponentId ComponentId, const TFunction<void(const Worker_CommandRequestOp&)>& Callback)
 {
-	return AddGenericOpCallback(ComponentId, WORKER_OP_TYPE_COMMAND_REQUEST, [Callback](const Worker_Op* Op)
+	return AddGenericOpCallback(EntityId, ComponentId, WORKER_OP_TYPE_COMMAND_REQUEST, [Callback](const Worker_Op* Op)
 	{
 		Callback(Op->command_request);
 	});
 }
 
-USpatialDispatcher::FCallbackId USpatialDispatcher::OnCommandResponse(Worker_ComponentId ComponentId, const TFunction<void(const Worker_CommandResponseOp&)>& Callback)
+USpatialDispatcher::FCallbackId USpatialDispatcher::OnCommandResponse(Worker_EntityId EntityId, Worker_ComponentId ComponentId, const TFunction<void(const Worker_CommandResponseOp&)>& Callback)
 {
-	return AddGenericOpCallback(ComponentId, WORKER_OP_TYPE_COMMAND_RESPONSE, [Callback](const Worker_Op* Op)
+	return AddGenericOpCallback(EntityId, ComponentId, WORKER_OP_TYPE_COMMAND_RESPONSE, [Callback](const Worker_Op* Op)
 	{
 		Callback(Op->command_response);
 	});
 }
 
-USpatialDispatcher::FCallbackId USpatialDispatcher::AddGenericOpCallback(Worker_ComponentId ComponentId, Worker_OpType OpType, const TFunction<void(const Worker_Op*)>& Callback)
+USpatialDispatcher::FCallbackId USpatialDispatcher::AddGenericOpCallback(Worker_EntityId EntityId, Worker_ComponentId ComponentId, Worker_OpType OpType, const TFunction<void(const Worker_Op*)>& Callback)
 {
 	check(SpatialConstants::MIN_EXTERNAL_SCHEMA_ID <= ComponentId && ComponentId <= SpatialConstants::MAX_EXTERNAL_SCHEMA_ID);
 	const FCallbackId NewCallbackId = NextCallbackId++;
-	ComponentOpTypeToCallbacksMap.FindOrAdd(ComponentId).FindOrAdd(OpType).Add(UserOpCallbackData{ NewCallbackId, Callback });
+	EntityIdToComponentIdToOpTypeToCallbacksMap.FindOrAdd(EntityId).FindOrAdd(ComponentId).FindOrAdd(OpType).Add(UserOpCallbackData{ NewCallbackId, Callback });
 	CallbackIdToDataMap.Add(NewCallbackId, CallbackIdData{ ComponentId, OpType });
 	return NewCallbackId;
 }
@@ -234,7 +257,13 @@ bool USpatialDispatcher::RemoveOpCallback(FCallbackId CallbackId)
 		return false;
 	}
 
-	OpTypeToCallbacksMap* OpTypesToCallbacks = ComponentOpTypeToCallbacksMap.Find(CallbackData->ComponentId);
+	ComponentIdToOpTypeToCallbacksMap* ComponentIdToOpTypesToCallbacks = EntityIdToComponentIdToOpTypeToCallbacksMap.Find(CallbackData->EntityId);
+	if (ComponentIdToOpTypesToCallbacks == nullptr)
+	{
+		return false;
+	}
+
+	OpTypeToCallbacksMap* OpTypesToCallbacks = ComponentIdToOpTypesToCallbacks.Find(CallbackData->ComponentId);
 	if (OpTypesToCallbacks == nullptr)
 	{
 		return false;
@@ -260,7 +289,12 @@ bool USpatialDispatcher::RemoveOpCallback(FCallbackId CallbackId)
 	{
 		if (OpTypesToCallbacks->Num() == 1)
 		{
-			ComponentOpTypeToCallbacksMap.Remove(CallbackData->ComponentId);
+			if (ComponentIdToOpTypesToCallbacks->Num() == 1)
+			{
+				EntityIdToComponentIdToOpTypeToCallbacksMap.Remove(CallbackData->EntityId);
+				return true;
+			}
+			ComponentIdToOpTypesToCallbacks.Remove(CallbackData->ComponentId);
 			return true;
 		}
 		OpTypesToCallbacks->Remove(CallbackData->OpType);
@@ -273,13 +307,19 @@ bool USpatialDispatcher::RemoveOpCallback(FCallbackId CallbackId)
 
 void USpatialDispatcher::RunCallbacks(Worker_ComponentId ComponentId, const Worker_Op* Op)
 {
-	OpTypeToCallbacksMap* OpTypeCallbacks = ComponentOpTypeToCallbacksMap.Find(ComponentId);
-	if (OpTypeCallbacks == nullptr)
+	ComponentIdToOpTypeToCallbacksMap* ComponentIdToOpTypesToCallbacks = EntityIdToComponentIdToOpTypeToCallbacksMap.Find(CallbackData->EntityId);
+	if (ComponentIdToOpTypesToCallbacks == nullptr)
+	{
+		return false;
+	}
+
+	OpTypeToCallbacksMap* OpTypesToCallbacks = ComponentIdToOpTypesToCallbacks.Find(CallbackData->ComponentId);
+	if (OpTypesToCallbacks == nullptr)
 	{
 		return;
 	}
 
-	TArray<UserOpCallbackData>* ComponentCallbacks = OpTypeCallbacks->Find(static_cast<Worker_OpType>(Op->op_type));
+	TArray<UserOpCallbackData>* ComponentCallbacks = OpTypesToCallbacks->Find(static_cast<Worker_OpType>(Op->op_type));
 	if (ComponentCallbacks == nullptr)
 	{
 		return;

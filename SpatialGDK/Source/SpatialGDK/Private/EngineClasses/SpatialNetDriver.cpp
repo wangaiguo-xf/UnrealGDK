@@ -32,6 +32,7 @@
 #include "SpatialGDKSettings.h"
 #include "Utils/EngineVersionCheck.h"
 #include "Utils/EntityPool.h"
+#include "Utils/ExternalWorkerInteropTemplate.h"
 #include "Utils/SpatialMetrics.h"
 #include "Utils/SpatialMetricsDisplay.h"
 
@@ -105,6 +106,15 @@ bool USpatialNetDriver::InitBase(bool bInitAsClient, FNetworkNotify* InNotify, c
 	// case we'll crash upon trying to load SchemaDatabase.
 	ClassInfoManager = NewObject<USpatialClassInfoManager>();
 	ClassInfoManager->Init(this);
+
+	for (TObjectIterator<UClass> ExternalWorkerInteropClass; ExternalWorkerInteropClass; ++ExternalWorkerInteropClass)
+	{
+		UE_LOG(LogSpatialOSNetDriver, Log, TEXT("Found template subclass %s"), *ExternalWorkerInteropClass > GetName());
+		if (ExternalWorkerInteropClass->IsChildOf(UExternalWorkerInteropTemplate::StaticClass()) && *ExternalWorkerInteropClass != UExternalWorkerInteropTemplate::StaticClass())
+		{
+			ExternalWorkerInteropComponentClasses.Add(ExternalWorkerInteropClass)
+		}
+	}
 
 	InitiateConnectionToSpatialOS(URL);
 
