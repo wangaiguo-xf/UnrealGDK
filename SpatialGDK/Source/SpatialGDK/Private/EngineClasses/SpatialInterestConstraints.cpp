@@ -45,11 +45,14 @@ void UOrConstraint::CreateConstraint(const USchemaDatabase& SchemaDatabase, Spat
 {
 	for (const UAbstractQueryConstraint* ConstraintData : Constraints)
 	{
-		SpatialGDK::QueryConstraint NewConstraint;
-		ConstraintData->CreateConstraint(SchemaDatabase, NewConstraint);
-		if (NewConstraint.IsValid())
+		if (ConstraintData)
 		{
-			OutConstraint.OrConstraint.Add(NewConstraint);
+			SpatialGDK::QueryConstraint NewConstraint;
+			ConstraintData->CreateConstraint(SchemaDatabase, NewConstraint);
+			if (NewConstraint.IsValid())
+			{
+				OutConstraint.OrConstraint.Add(NewConstraint);
+			}
 		}
 	}
 }
@@ -58,11 +61,13 @@ void UAndConstraint::CreateConstraint(const USchemaDatabase& SchemaDatabase, Spa
 {
 	for (const UAbstractQueryConstraint* ConstraintData : Constraints)
 	{
-		SpatialGDK::QueryConstraint NewConstraint;
-		ConstraintData->CreateConstraint(SchemaDatabase, NewConstraint);
-		if (NewConstraint.IsValid())
+		if (ConstraintData)
 		{
-			OutConstraint.AndConstraint.Add(NewConstraint);
+			SpatialGDK::QueryConstraint NewConstraint; ConstraintData->CreateConstraint(SchemaDatabase, NewConstraint);
+			if (NewConstraint.IsValid())
+			{
+				OutConstraint.AndConstraint.Add(NewConstraint);
+			}
 		}
 	}
 }
@@ -107,8 +112,11 @@ void UCheckoutRadiusConstraint::CreateConstraint(const USchemaDatabase& SchemaDa
 	constexpr bool bIncludeDerivedTypes = true;
 	AddTypeHierarchyToConstraint(ActorClass, SchemaDatabase, ActorClassConstraints, bIncludeDerivedTypes);
 
-	OutConstraint.AndConstraint.Add(RadiusConstraint);
-	OutConstraint.AndConstraint.Add(ActorClassConstraints);
+	if (RadiusConstraint.IsValid() && ActorClassConstraints.IsValid())
+	{
+		OutConstraint.AndConstraint.Add(RadiusConstraint);
+		OutConstraint.AndConstraint.Add(ActorClassConstraints);
+	}
 }
 
 void UActorClassConstraint::CreateConstraint(const USchemaDatabase& SchemaDatabase, SpatialGDK::QueryConstraint& OutConstraint) const

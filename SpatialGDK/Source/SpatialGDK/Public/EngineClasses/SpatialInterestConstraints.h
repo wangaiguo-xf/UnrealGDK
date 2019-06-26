@@ -2,8 +2,7 @@
 
 #pragma once
 
-#include "Containers/Array.h"
-#include "Math/Vector.h"
+#include "CoreMinimal.h"
 
 #include "SpatialInterestConstraints.generated.h"
 
