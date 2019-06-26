@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added runtime option to batch spatial position updates to runtime.
 - Added runtime option to pack unreliable RPCs from the same frame in a single component update to save bandwidth - bPackUnreliableRPCs.
 - Changed Interest so that NetCullDistanceSquared is used to define the distance from a player that the actor type is *interesting to* the player. This replaces CheckoutRadius which defined the distance that an actor is *interested in* other types. Requires engine update to remove the CheckoutRadius property which is no longer used.
+- Added ActorInterestQueryComponent that can be used to define interest queries that are more complex than a radius around the player position.
 - Enabled new Development Authentication Flow
 
 ### Bug fixes:
