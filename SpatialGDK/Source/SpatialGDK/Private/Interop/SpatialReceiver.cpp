@@ -1055,6 +1055,8 @@ void USpatialReceiver::HandleRPC(Worker_ComponentUpdateOp& Op)
 			QueueIncomingRPC(Params);
 		}
 	}
+	// TODO(Alex): Remove this test code
+	ResolveIncomingRPCs();
 }
 
 void USpatialReceiver::OnCommandRequest(Worker_CommandRequestOp& Op)
