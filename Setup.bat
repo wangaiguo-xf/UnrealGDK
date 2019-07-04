@@ -30,12 +30,6 @@ call :MarkStartOfBlock "Check dependencies"
 
     call "%~dp0SpatialGDK\Build\Scripts\FindMSBuild.bat"
 
-    if not defined MSBUILD_EXE (
-        echo Error: Could not find the MSBuild executable. Please make sure you have Microsoft Visual Studio or Microsoft Build Tools installed.
-        pause
-        exit /b 1
-    )
-
     where spatial >nul
     if ERRORLEVEL 1 (
         echo Error: Could not find spatial. Please make sure you have it installed and the containing directory added to PATH environment variable.
