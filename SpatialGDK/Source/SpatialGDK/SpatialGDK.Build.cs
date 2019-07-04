@@ -10,6 +10,21 @@ using UnrealBuildTool;
 
 public class SpatialGDK : ModuleRules
 {
+    private string ProjectRoot
+    {
+        get { return Path.GetFullPath(Path.Combine(ModuleDirectory, "../../")); }
+    }
+
+    private string ThirdPartyPath
+    {
+        get { return Path.GetFullPath(Path.Combine(ProjectRoot, "Binaries", "ThirdParty")); }
+    }
+
+    private string ImprobableThirdPartyDir
+    {
+        get { return Path.Combine(ThirdPartyPath, "Improbable"); }
+    }
+
     public SpatialGDK(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
@@ -30,18 +45,18 @@ public class SpatialGDK : ModuleRules
                 "Sockets",
             });
 
-		if (Target.bBuildEditor)
-		{
-			PublicDependencyModuleNames.Add("UnrealEd");
-			PublicDependencyModuleNames.Add("SpatialGDKEditorToolbar");
-		}
+        if (Target.bBuildEditor)
+        {
+            PublicDependencyModuleNames.Add("UnrealEd");
+            PublicDependencyModuleNames.Add("SpatialGDKEditorToolbar");
+        }
 
         if (Target.bWithPerfCounters)
         {
             PublicDependencyModuleNames.Add("PerfCounters");
         }
 
-        var WorkerLibraryDir = Path.GetFullPath(Path.Combine(ModuleDirectory, "..", "..", "Binaries", "ThirdParty", "Improbable", Target.Platform.ToString()));
+        var WorkerLibraryDir = Path.GetFullPath(Path.Combine(ImprobableThirdPartyDir, Target.Platform.ToString()));
 
         string LibPrefix = "";
         string ImportLibSuffix = "";
@@ -80,19 +95,63 @@ public class SpatialGDK : ModuleRules
                 LibPrefix = "lib";
                 ImportLibSuffix = SharedLibSuffix = "_static_fullylinked.a";
                 break;
+            case UnrealTargetPlatform.Android:
+                {
+                    LibPrefix = "lib";
+                    ImportLibSuffix = ".a";
+
+                    AddSpatialAndroidDependencies(Target);
+                    break;
+                }
             default:
                 throw new System.Exception(System.String.Format("Unsupported platform {0}", Target.Platform.ToString()));
         }
 
-        string WorkerImportLib = System.String.Format("{0}worker{1}", LibPrefix, ImportLibSuffix);
-        string WorkerSharedLib = System.String.Format("{0}worker{1}", LibPrefix, SharedLibSuffix);
-
-        PublicAdditionalLibraries.AddRange(new[] { Path.Combine(WorkerLibraryDir, WorkerImportLib) });
-        PublicLibraryPaths.Add(WorkerLibraryDir);
-        RuntimeDependencies.Add(Path.Combine(WorkerLibraryDir, WorkerSharedLib), StagedFileType.NonUFS);
-        if (bAddDelayLoad)
+        if(UnrealTargetPlatform.Android != Target.Platform)
         {
-            PublicDelayLoadDLLs.Add(WorkerSharedLib);
+            string WorkerImportLib = System.String.Format("{0}worker{1}", LibPrefix, ImportLibSuffix);
+            string WorkerSharedLib = System.String.Format("{0}worker{1}", LibPrefix, SharedLibSuffix);
+
+            PublicAdditionalLibraries.AddRange(new[] { Path.Combine(WorkerLibraryDir, WorkerImportLib) });
+            PublicLibraryPaths.Add(WorkerLibraryDir);
+            RuntimeDependencies.Add(Path.Combine(WorkerLibraryDir, WorkerSharedLib), StagedFileType.NonUFS);
+            if (bAddDelayLoad)
+            {
+                PublicDelayLoadDLLs.Add(WorkerSharedLib);
+            }
+
+            string IncludeDir = Path.Combine(WorkerLibraryDir, "include");
+            PublicIncludePaths.Add(IncludeDir);
+
+            System.Console.WriteLine("++++++++++++ IncludeDir: " + IncludeDir + "\r");
         }
-	}
+    }
+
+    public void AddSpatialAndroidDependencies(ReadOnlyTargetRules Target)
+    {
+        string WorkerLibraryDir = Path.GetFullPath(Path.Combine(ImprobableThirdPartyDir, Target.Platform.ToString()));
+
+        switch (Target.Platform)
+        {
+            case UnrealTargetPlatform.Android:
+                {
+                    List<string> LibNames = new List<string>() { "libCoreSdk.a", "libgpr.a", "libgrpc.a",
+                        "libgrpc++.a", "libprotobuf.a", "libRakNetLibStatic.a", "libWorkerSdk.a", "libz.a"};
+
+                    foreach(string Name in LibNames)
+                    {
+                        string LibPath = Path.Combine(WorkerLibraryDir, "lib", Name);
+                        PublicAdditionalLibraries.Add(LibPath);
+
+                        System.Console.WriteLine("++++++++++++++++++++++++ NDK lib" + Name + " : " + LibPath + "\r");
+                    }
+
+                    string IncludePath = Path.Combine(WorkerLibraryDir, "include");
+                    PublicIncludePaths.Add(IncludePath);
+
+                    System.Console.WriteLine("++++++++++++++++++++++++ NDK headers path: " + IncludePath + "\r");
+                    break;
+                }
+        }
+    }
 }
