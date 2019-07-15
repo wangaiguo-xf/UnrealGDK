@@ -135,8 +135,10 @@ public class SpatialGDK : ModuleRules
         {
             case UnrealTargetPlatform.Android:
                 {
+                    //AndroidNDKCompilerVersion = NDKCompilerVersion.LLVM;
+
                     List<string> LibNames = new List<string>() { "libCoreSdk.a", "libgpr.a", "libgrpc.a",
-                        "libgrpc++.a", "libprotobuf.a", "libRakNetLibStatic.a", "libWorkerSdk.a", "libz.a"};
+                        "libgrpc++.a", "libprotobuf.a", "libRakNetLibStatic.a", "libWorkerSdk.a", "libz.a", "libssl.a", "libcrypto.a"};
 
                     foreach(string Name in LibNames)
                     {
