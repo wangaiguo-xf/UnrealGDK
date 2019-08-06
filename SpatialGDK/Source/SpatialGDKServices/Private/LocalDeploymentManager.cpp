@@ -34,6 +34,7 @@ FLocalDeploymentManager::FLocalDeploymentManager()
 	// Get the project name from the spatialos.json.
 	ProjectName = GetProjectName();
 
+#if PLATFORM_WINDOWS
 	// Don't kick off background processes when running commandlets
 	if (IsRunningCommandlet() == false)
 	{
@@ -53,6 +54,7 @@ FLocalDeploymentManager::FLocalDeploymentManager()
 			RefreshServiceStatus();
 		});
 	}
+#endif
 }
 
 const FString FLocalDeploymentManager::GetSpotExe()
@@ -146,6 +148,7 @@ bool FLocalDeploymentManager::ParseJson(const FString& RawJsonString, TSharedPtr
 // For other processes which do not spawn cmd windows, use ExecProcess instead.
 void FLocalDeploymentManager::ExecuteAndReadOutput(const FString& Executable, const FString& Arguments, const FString& DirectoryToRun, FString& OutResult, int32& ExitCode)
 {
+#if PLATFORM_WINDOWS
 	UE_LOG(LogSpatialDeploymentManager, Verbose, TEXT("Executing '%s' with arguments '%s' in directory '%s'"), *Executable, *Arguments, *DirectoryToRun);
 
 	void* ReadPipe = nullptr;
@@ -173,6 +176,9 @@ void FLocalDeploymentManager::ExecuteAndReadOutput(const FString& Executable, co
 
 	FPlatformProcess::ClosePipe(0, ReadPipe);
 	FPlatformProcess::ClosePipe(0, WritePipe);
+#else
+	ExitCode = 1;
+#endif
 }
 
 void FLocalDeploymentManager::RefreshServiceStatus()
@@ -201,6 +207,8 @@ void FLocalDeploymentManager::RefreshServiceStatus()
 
 bool FLocalDeploymentManager::TryStartLocalDeployment(FString LaunchConfig, FString LaunchArgs)
 {
+	bRedeployRequired = false;
+
 	if (bStoppingDeployment)
 	{
 		UE_LOG(LogSpatialDeploymentManager, Verbose, TEXT("Local deployment is in the process of stopping. New deployment will start when previous one has stopped."));
@@ -573,4 +581,31 @@ bool FLocalDeploymentManager::IsServiceStarting() const
 bool FLocalDeploymentManager::IsServiceStopping() const
 {
 	return bStoppingSpatialService;
+}
+
+bool FLocalDeploymentManager::IsRedeployRequired() const
+{
+	return bRedeployRequired;
+}
+
+void FLocalDeploymentManager::SetRedeployRequired()
+{
+	bRedeployRequired = true;
+}
+
+bool FLocalDeploymentManager::ShouldWaitForDeployment() const
+{
+	if (bAutoDeploy)
+	{
+		return !IsLocalDeploymentRunning() || IsDeploymentStopping() || IsDeploymentStarting();
+	}
+	else
+	{
+		return false;
+	}
+}
+
+void FLocalDeploymentManager::SetAutoDeploy(bool bInAutoDeploy)
+{
+	bAutoDeploy = bInAutoDeploy;
 }

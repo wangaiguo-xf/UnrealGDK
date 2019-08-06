@@ -118,6 +118,7 @@ void USpatialReceiver::OnAddComponent(const Worker_AddComponentOp& Op)
 	case SpatialConstants::NETMULTICAST_RPCS_COMPONENT_ID:
 	case SpatialConstants::RPCS_ON_ENTITY_CREATION_ID:
 	case SpatialConstants::DEBUG_METRICS_COMPONENT_ID:
+	case SpatialConstants::ALWAYS_RELEVANT_COMPONENT_ID:
 		// Ignore static spatial components as they are managed by the SpatialStaticComponentView.
 		return;
 	case SpatialConstants::SINGLETON_MANAGER_COMPONENT_ID:
@@ -176,6 +177,18 @@ void USpatialReceiver::FlushRemoveComponentOps()
 	}
 
 	QueuedRemoveComponentOps.Empty();
+}
+
+void USpatialReceiver::RemoveComponentOpsForEntity(Worker_EntityId EntityId)
+{
+	for (auto& RemoveComponentOp : QueuedRemoveComponentOps)
+	{
+		if (RemoveComponentOp.entity_id == EntityId)
+		{
+			// Zero component op to prevent array resize
+			RemoveComponentOp = Worker_RemoveComponentOp{};
+		}
+	}
 }
 
 void USpatialReceiver::ProcessRemoveComponent(const Worker_RemoveComponentOp& Op)
@@ -473,8 +486,16 @@ void USpatialReceiver::ReceiveActor(Worker_EntityId EntityId)
 	}
 	else
 	{
+		UClass* Class = UnrealMetadataComp->GetNativeEntityClass();
+		if (Class == nullptr)
+		{
+			UE_LOG(LogSpatialReceiver, Warning, TEXT("The received actor with entity id %lld couldn't be loaded. The actor (%s) will not be spawned."),
+				EntityId, *UnrealMetadataComp->ClassPath);
+			return;
+		}
+
 		// Make sure ClassInfo exists
-		ClassInfoManager->GetOrCreateClassInfoByClass(UnrealMetadataComp->GetNativeEntityClass());
+		ClassInfoManager->GetOrCreateClassInfoByClass(Class);
 
 		// If the received actor is torn off, don't bother spawning it.
 		// (This is only needed due to the delay between tearoff and deleting the entity. See https://improbableio.atlassian.net/browse/UNR-841)
@@ -649,6 +670,10 @@ void USpatialReceiver::RemoveActor(Worker_EntityId EntityId)
 	if (Actor->IsFullNameStableForNetworking())
 	{
 		QueryForStartupActor(Actor, EntityId);
+
+		// We can't call CleanupDeletedEntity here as we need the NetDriver to maintain the EntityId
+		// to Actor Channel mapping for the DestoryActor to function correctly
+		PackageMap->RemoveEntityActor(EntityId);
 		return;
 	}
 
@@ -1060,6 +1085,7 @@ void USpatialReceiver::OnComponentUpdate(const Worker_ComponentUpdateOp& Op)
 	case SpatialConstants::NOT_STREAMED_COMPONENT_ID:
 	case SpatialConstants::RPCS_ON_ENTITY_CREATION_ID:
 	case SpatialConstants::DEBUG_METRICS_COMPONENT_ID:
+	case SpatialConstants::ALWAYS_RELEVANT_COMPONENT_ID:
 		UE_LOG(LogSpatialReceiver, Verbose, TEXT("Entity: %d Component: %d - Skipping because this is hand-written Spatial component"), Op.entity_id, Op.update.component_id);
 		return;
 	case SpatialConstants::GSM_SHUTDOWN_COMPONENT_ID:
